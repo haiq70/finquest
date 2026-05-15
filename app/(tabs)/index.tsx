@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Alert,
-  TouchableOpacity, SafeAreaView,
+  TouchableOpacity, SafeAreaView, Animated,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useStore } from '../../src/store/useStore';
@@ -11,8 +11,26 @@ import {
 import AddTransactionModal from '../../src/components/AddTransactionModal';
 import { KasumiCard } from '../../src/kasumi/KasumiCard';
 import { KasumiDialogueModal } from '../../src/kasumi/KasumiDialogueModal';
-import { Colors, Spacing, Radius, FontWeight, XP_PER_LEVEL } from '../../src/theme';
+import { Spacing, Radius, FontWeight, XP_PER_LEVEL } from '../../src/theme';
 import { fmtCurrency, getGreeting } from '../../src/utils/format';
+import { MULTIPLIER_STREAK_GATE } from '../../src/kasumi/xp';
+
+// Lavender/pink palette — overrides Colors where the restyle calls for it.
+const PALETTE = {
+  bg:           '#faf5ff',
+  bgAccent:     '#fce7f3',
+  cardBg:       '#ffffff',
+  cardBorder:   '#ede9fe',
+  textPrimary:  '#3b0764',
+  textSecondary:'#7e22ce',
+  textMuted:    '#a78bfa',
+  accent:       '#a855f7',
+  accentDeep:   '#7c3aed',
+  pink:         '#ec4899',
+  pinkDeep:     '#be185d',
+  income:       '#22c55e',
+  expense:      '#ef4444',
+};
 
 export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
@@ -21,7 +39,9 @@ export default function HomeScreen() {
   const transactions      = useStore(s => s.transactions);
   const xp                = useStore(s => s.xp);
   const streak            = useStore(s => s.streak);
+  const savingStreak      = useStore(s => s.savingStreak);
   const goals             = useStore(s => s.goals);
+  const lastXpAward       = useStore(s => s.lastXpAward);
   const getTotals         = useStore(s => s.getTotals);
   const getLevel          = useStore(s => s.getLevel);
   const getXpInLevel      = useStore(s => s.getXpInLevel);
@@ -31,6 +51,28 @@ export default function HomeScreen() {
   const level     = getLevel();
   const xpInLevel = getXpInLevel();
   const recent    = transactions.slice(0, 6);
+  const isNetNeg  = expenses > 0 && expenses > income;
+
+  // ── XP-award toast ───────────────────────────────────────────
+  // Fades in/out when a new award arrives. We watch a key derived
+  // from the award so re-renders don't retrigger it.
+  const [toast, setToast] = useState<{ text: string; locked: boolean } | null>(null);
+  const fade = React.useRef(new Animated.Value(0)).current;
+  const lastAwardKey = lastXpAward ? `${lastXpAward.amount}|${lastXpAward.tierLabel}` : null;
+
+  useEffect(() => {
+    if (!lastXpAward || lastXpAward.amount === 0) return;
+    setToast({
+      text: `+${lastXpAward.amount} XP · ${lastXpAward.tierLabel}`,
+      locked: lastXpAward.multiplierLocked,
+    });
+    Animated.sequence([
+      Animated.timing(fade, { toValue: 1, duration: 240, useNativeDriver: true }),
+      Animated.delay(2200),
+      Animated.timing(fade, { toValue: 0, duration: 320, useNativeDriver: true }),
+    ]).start(() => setToast(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAwardKey]);
 
   const handleDelete = useCallback((id: string) => {
     Alert.alert('Delete transaction', 'Remove this entry?', [
@@ -39,16 +81,22 @@ export default function HomeScreen() {
     ]);
   }, [deleteTransaction]);
 
+  const multiplierUnlocked = savingStreak >= MULTIPLIER_STREAK_GATE;
+
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Soft pink corner glow */}
+      <View style={styles.pageGlow} pointerEvents="none" />
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>{getGreeting()} 👋</Text>
+            <Text style={styles.greeting}>{getGreeting()} <Text>👋</Text></Text>
             <Text style={styles.subheading}>
-              Level {level} Saver · {streak > 0 ? `${streak} day streak 🔥` : 'Start your streak!'}
+              Level {level} Saver
+              {streak > 0 ? ` · ${streak} day streak 🔥` : ' · Start your streak!'}
             </Text>
           </View>
           <View style={styles.avatar}>
@@ -56,26 +104,45 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Kasumi (companion) — the gamified hero */}
+        {/* Kasumi card */}
         <KasumiCard onOpenDialogue={() => setKasumiOpen(true)} />
 
-        {/* Balance hero card */}
+        {/* Balance hero — recolored to fit palette */}
         <View style={styles.hero}>
-          <Text style={styles.heroLabel}>NET BALANCE</Text>
-          <Text style={styles.heroBalance}>{fmtCurrency(balance)}</Text>
+          <View style={styles.heroBgGlow} pointerEvents="none" />
+          <Text style={styles.heroLabel}>NET BALANCE  ✦</Text>
+          <Text style={[styles.heroBalance, isNetNeg && { color: '#fda4af' }]}>
+            {fmtCurrency(balance)}
+          </Text>
           <Text style={styles.heroUpdated}>Updated just now</Text>
           <View style={styles.heroDivider} />
           <View style={styles.heroStats}>
             <View>
-              <Text style={[styles.heroStatVal, { color: Colors.income }]}>{fmtCurrency(income)}</Text>
+              <Text style={[styles.heroStatVal, { color: '#86efac' }]}>{fmtCurrency(income)}</Text>
               <Text style={styles.heroStatLabel}>Income</Text>
             </View>
             <View style={styles.heroStatSep} />
             <View>
-              <Text style={[styles.heroStatVal, { color: '#f87171' }]}>{fmtCurrency(expenses)}</Text>
+              <Text style={[styles.heroStatVal, { color: '#fca5a5' }]}>{fmtCurrency(expenses)}</Text>
               <Text style={styles.heroStatLabel}>Spent</Text>
             </View>
           </View>
+        </View>
+
+        {/* Saving-streak / multiplier banner */}
+        <View style={[styles.streakBanner, multiplierUnlocked && styles.streakBannerActive]}>
+          <Text style={styles.streakIcon}>{multiplierUnlocked ? '✨' : '🔒'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.streakTitle}>
+              {multiplierUnlocked ? 'XP multipliers unlocked' : 'Save daily to unlock multipliers'}
+            </Text>
+            <Text style={styles.streakSub}>
+              {multiplierUnlocked
+                ? `${savingStreak}-day saving streak · 1.5×/2×/3× on €100/€300/€500+`
+                : `${savingStreak} / ${MULTIPLIER_STREAK_GATE} days saving in a row`}
+            </Text>
+          </View>
+          <View style={[styles.streakDot, multiplierUnlocked && { backgroundColor: PALETTE.pink }]} />
         </View>
 
         {/* XP bar */}
@@ -84,7 +151,7 @@ export default function HomeScreen() {
         {/* Goals */}
         {goals.length > 0 && (
           <>
-            <SectionTitle>Goals</SectionTitle>
+            <SectionTitle>Goals  ♡</SectionTitle>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -96,12 +163,12 @@ export default function HomeScreen() {
         )}
 
         {/* Recent transactions */}
-        <SectionTitle style={{ marginTop: Spacing.sm }}>Recent</SectionTitle>
+        <SectionTitle style={{ marginTop: Spacing.sm }}>Recent  ✦</SectionTitle>
         {recent.length === 0 ? (
           <EmptyState
             icon="💸"
             title="No transactions yet"
-            sub="Tap + to log your first entry and earn 20 XP"
+            sub="Tap + to log your first entry — income earns XP, expenses don't"
           />
         ) : (
           <View style={styles.txList}>
@@ -112,6 +179,15 @@ export default function HomeScreen() {
         )}
 
       </ScrollView>
+
+      {/* XP-award toast */}
+      {toast && (
+        <Animated.View style={[styles.toast, { opacity: fade }]} pointerEvents="none">
+          <Text style={styles.toastSparkle}>✦</Text>
+          <Text style={styles.toastText}>{toast.text}</Text>
+          {toast.locked && <Text style={styles.toastLock}>· streak locks bigger bonus</Text>}
+        </Animated.View>
+      )}
 
       {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)} activeOpacity={0.85}>
@@ -131,28 +207,97 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: Colors.background },
+  safe:        { flex: 1, backgroundColor: PALETTE.bg },
   scroll:      { paddingBottom: 100 },
 
-  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.md },
-  greeting:    { fontSize: 20, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
-  subheading:  { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
-  avatar:      { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.dark, alignItems: 'center', justifyContent: 'center' },
-  avatarText:  { color: '#fff', fontSize: 13, fontWeight: FontWeight.semibold },
+  pageGlow: {
+    position: 'absolute',
+    top: -120, right: -80,
+    width: 280, height: 280,
+    borderRadius: 140,
+    backgroundColor: PALETTE.bgAccent,
+    opacity: 0.5,
+  },
 
-  hero:        { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, backgroundColor: Colors.dark, borderRadius: Radius.xl, padding: Spacing.xxl },
-  heroLabel:   { fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.9, marginBottom: 6 },
-  heroBalance: { fontSize: 40, fontWeight: FontWeight.bold, color: '#fff', letterSpacing: -1.5 },
-  heroUpdated: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 },
-  heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: Spacing.lg },
+  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.md },
+  greeting:    { fontSize: 22, fontWeight: FontWeight.bold, color: PALETTE.textPrimary, letterSpacing: -0.5 },
+  subheading:  { fontSize: 13, color: PALETTE.textSecondary, marginTop: 2 },
+  avatar:      { width: 42, height: 42, borderRadius: 21, backgroundColor: PALETTE.accentDeep, alignItems: 'center', justifyContent: 'center', shadowColor: PALETTE.accentDeep, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
+  avatarText:  { color: '#fff', fontSize: 13, fontWeight: FontWeight.bold },
+
+  hero: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: '#4c1d95',
+    borderRadius: Radius.xl,
+    padding: Spacing.xxl,
+    overflow: 'hidden',
+    shadowColor: PALETTE.accentDeep,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  heroBgGlow: {
+    position: 'absolute',
+    top: -60, right: -60,
+    width: 220, height: 220,
+    borderRadius: 110,
+    backgroundColor: PALETTE.pink,
+    opacity: 0.18,
+  },
+  heroLabel:   { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 6, fontWeight: FontWeight.semibold },
+  heroBalance: { fontSize: 42, fontWeight: FontWeight.bold, color: '#fff', letterSpacing: -1.5 },
+  heroUpdated: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
+  heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginVertical: Spacing.lg },
   heroStats:   { flexDirection: 'row', alignItems: 'center' },
-  heroStatVal: { fontSize: 17, fontWeight: FontWeight.semibold },
-  heroStatLabel:{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
+  heroStatVal: { fontSize: 17, fontWeight: FontWeight.bold },
+  heroStatLabel:{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
   heroStatSep: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: Spacing.xl },
+
+  streakBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.lg,
+    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
+    backgroundColor: '#fff',
+    borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: PALETTE.cardBorder,
+  },
+  streakBannerActive: {
+    backgroundColor: '#fdf4ff',
+    borderColor: PALETTE.pink + '55',
+  },
+  streakIcon:  { fontSize: 22 },
+  streakTitle: { fontSize: 13, fontWeight: FontWeight.bold, color: PALETTE.textPrimary },
+  streakSub:   { fontSize: 11, color: PALETTE.textSecondary, marginTop: 2 },
+  streakDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: PALETTE.textMuted },
 
   goalsRow:    { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
   txList:      { paddingHorizontal: Spacing.lg },
 
-  fab:         { position: 'absolute', bottom: 24, alignSelf: 'center', width: 56, height: 56, borderRadius: 18, backgroundColor: Colors.dark, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8 },
-  fabIcon:     { color: '#fff', fontSize: 26, lineHeight: 30 },
+  // XP toast
+  toast: {
+    position: 'absolute',
+    top: 80, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: PALETTE.accentDeep,
+    paddingHorizontal: Spacing.lg, paddingVertical: 10,
+    borderRadius: Radius.full,
+    shadowColor: PALETTE.accentDeep,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
+  },
+  toastSparkle: { color: '#fbbf24', fontSize: 14 },
+  toastText:    { color: '#fff', fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.3 },
+  toastLock:    { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontStyle: 'italic' },
+
+  fab: {
+    position: 'absolute', bottom: 24, alignSelf: 'center',
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: PALETTE.pink,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: PALETTE.pink, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
+  },
+  fabIcon: { color: '#fff', fontSize: 28, lineHeight: 32, fontWeight: FontWeight.bold },
 });

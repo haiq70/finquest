@@ -51,7 +51,8 @@ export type DialogueEvent =
   | 'streak_milestone'  // hit a 7/14/30 day streak
   | 'streak_broken'     // streak reset to 1 after >1 day gap
   | 'first_meeting'     // affection still 0 and never spoken to
-  | 'tier_up';          // just moved into a new tier
+  | 'tier_up'           // just moved into a new tier
+  | 'net_negative';     // persistent: expenses > income overall
 
 // ── Tone matrix ─────────────────────────────────────────────────────
 // Lines are written so tone shifts naturally with the tier.
@@ -303,6 +304,29 @@ export const SCRIPT: ScriptTable = {
       "Whatever this is between us… it's the best version of it.",
     ],
     soulmate: [],
+  },
+
+  net_negative: {
+    stranger: [
+      "You're spending more than you're bringing in. I'd like to see that flip before we go any further.",
+      "The numbers aren't balancing. Log some income or pull back — I'll wait.",
+    ],
+    acquaintance: [
+      "Hey. The math isn't on our side this month. Can we talk about it?",
+      "Spent more than you earned. Not the end of the world — but I can't be cheerful about it.",
+    ],
+    friend: [
+      "I'm worried. We're in the red and I don't want to pretend it's fine.",
+      "Something's off. You're outspending your income and I can't smile through that.",
+    ],
+    close: [
+      "I'm not okay watching this. Talk to me — what changed?",
+      "We're upside down. I know you know. Let's figure it out together.",
+    ],
+    soulmate: [
+      "This isn't like you. I'm here, but I can't pretend I'm not worried.",
+      "I love you too much to fake a smile through this. We need to rebalance.",
+    ],
   },
 };
 
