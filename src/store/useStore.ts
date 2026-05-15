@@ -8,6 +8,27 @@ import {
   XP_PER_TX,
 } from '../theme';
 import { todayString, yesterdayString } from '../utils/format';
+import {
+  AFFECTION_MAX,
+  clampAffection,
+  moodEventForExpense,
+  moodEventForGoalContribution,
+  moodEventForIncome,
+  MOOD_EVENT_GOAL_COMPLETED,
+  MOOD_EVENT_LEVEL_UP,
+  MOOD_EVENT_STREAK_BROKEN,
+  MOOD_EVENT_STREAK_MILESTONE,
+  MOOD_EVENT_TIER_UP,
+  STREAK_MILESTONES,
+  type MoodEvent,
+} from '../kasumi/affection';
+import {
+  pickLine,
+  tierFromAffection,
+  type DialogueEvent,
+  type Mood,
+  type RelationshipTier,
+} from '../kasumi/dialogue';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -61,6 +82,15 @@ interface StoreState {
   lastLogDate: string | null;
   goals: Goal[];
 
+  // ── Kasumi (companion) ────────────────────────────────────────
+  affection: number;            // 0..100
+  hasMet: boolean;              // false until first interaction with her
+  lastTierKey: RelationshipTier;// to detect tier-ups
+  currentMood: Mood;            // which face to render right now
+  currentEvent: DialogueEvent;  // what she's reacting to right now
+  currentLine: string;          // line associated with currentEvent
+  moodExpiresAt: number | null; // epoch ms when mood relaxes to idle
+
   // Actions
   addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => void;
   deleteTransaction: (id: string) => void;
@@ -69,6 +99,12 @@ interface StoreState {
   deleteGoal: (id: string) => void;
   contributeToGoal: (goalId: string, amount: number) => void;
 
+  // Kasumi actions
+  markMet: () => void;
+  refreshIdleLine: () => void;     // pick a new ambient line
+  acknowledgeMood: () => void;     // user tapped the speech bubble → relax to idle
+  tickMood: () => void;            // called periodically; relaxes expired mood
+
   // Derived (computed on the fly — not stored)
   getTotals: () => { income: number; expenses: number; balance: number };
   getLevel: () => number;
@@ -76,6 +112,7 @@ interface StoreState {
   getCategoryBreakdown: () => [Category, number][];
   getLeaderboardWithMe: () => Array<LeaderboardEntry & { rank: number }>;
   getMonthlyTotals: () => { income: number; expenses: number; saved: number };
+  getTier: () => ReturnType<typeof tierFromAffection>;
 }
 
 const STATIC_LEADERBOARD: LeaderboardEntry[] = [
@@ -93,119 +130,269 @@ const DEFAULT_GOALS: Goal[] = [
 
 export const useStore = create<StoreState>()(
   persist(
-    (set, get) => ({
-      transactions: [],
-      xp: 0,
-      streak: 0,
-      lastLogDate: null,
-      goals: DEFAULT_GOALS,
+    (set, get) => {
+      // ── Internal helper ─────────────────────────────────────
+      // Apply a MoodEvent: bump affection, set face + line, detect
+      // tier-up and overlay the tier-up reaction if it happened.
+      function applyMoodEvent(me: MoodEvent) {
+        const state = get();
+        const oldTier = tierFromAffection(state.affection);
+        const newAffection = clampAffection(state.affection + me.affectionDelta);
+        const newTier = tierFromAffection(newAffection);
+        const tierChanged = newTier.key !== oldTier.key && me.affectionDelta > 0;
 
-      // ── Actions ────────────────────────────────────────────
+        // If we crossed into a higher tier, the tier-up reaction wins.
+        const finalEvent = tierChanged ? MOOD_EVENT_TIER_UP.event : me.event;
+        const finalMood: Mood =
+          finalEvent === 'income' || finalEvent === 'goal_contribution' ||
+          finalEvent === 'goal_completed' || finalEvent === 'level_up' ||
+          finalEvent === 'streak_milestone' || finalEvent === 'tier_up'
+            ? 'happy'
+            : finalEvent === 'big_expense' || finalEvent === 'streak_broken'
+              ? 'sad'
+              : 'neutral';
+        const finalDuration = tierChanged
+          ? Math.max(me.durationMs, MOOD_EVENT_TIER_UP.durationMs)
+          : me.durationMs;
+        const finalLine = pickLine(finalEvent, newTier.key);
 
-      addTransaction(tx) {
-        const today = todayString();
-        const newTx: Transaction = {
-          ...tx,
-          id: Date.now().toString(),
-          date: new Date().toISOString(),
-        };
+        set({
+          affection: newAffection,
+          lastTierKey: newTier.key,
+          currentMood: finalMood,
+          currentEvent: finalEvent,
+          currentLine: finalLine,
+          moodExpiresAt: Date.now() + finalDuration,
+        });
+      }
 
-        set(state => {
+      return {
+        transactions: [],
+        xp: 0,
+        streak: 0,
+        lastLogDate: null,
+        goals: DEFAULT_GOALS,
+
+        // Kasumi defaults
+        affection: 0,
+        hasMet: false,
+        lastTierKey: 'stranger' as RelationshipTier,
+        currentMood: 'neutral' as Mood,
+        currentEvent: 'idle' as DialogueEvent,
+        currentLine: '',
+        moodExpiresAt: null,
+
+        // ── Actions ────────────────────────────────────────────
+
+        addTransaction(tx) {
+          const today = todayString();
+          const yesterday = yesterdayString();
+          const newTx: Transaction = {
+            ...tx,
+            id: Date.now().toString(),
+            date: new Date().toISOString(),
+          };
+
+          // Streak math — same as before, but we also need to know
+          // whether the streak just broke so Kasumi can react.
+          const state = get();
           let { streak, lastLogDate } = state;
+          let streakBroke = false;
+          let streakHitMilestone = false;
+          const oldLevel = calcLevel(state.xp);
+
           if (lastLogDate !== today) {
-            streak = lastLogDate === yesterdayString() ? streak + 1 : 1;
+            if (lastLogDate === yesterday || lastLogDate === null) {
+              streak = lastLogDate === yesterday ? streak + 1 : 1;
+            } else {
+              // Gap > 1 day → streak resets and Kasumi notices.
+              streakBroke = lastLogDate !== null;
+              streak = 1;
+            }
           }
-          return {
+          if (STREAK_MILESTONES.includes(streak)) streakHitMilestone = true;
+
+          const newXp = state.xp + XP_PER_TX;
+          const newLevel = calcLevel(newXp);
+          const leveledUp = newLevel > oldLevel;
+
+          set({
             transactions: [newTx, ...state.transactions],
-            xp: state.xp + XP_PER_TX,
+            xp: newXp,
             streak,
             lastLogDate: today,
+          });
+
+          // Decide which mood event wins. Priority order:
+          //   1. Streak broken (loud negative signal — overrides others)
+          //   2. Goal-completion / level-up (positive milestones)
+          //   3. Streak milestone
+          //   4. The transaction itself (income / small / big expense)
+          if (streakBroke) {
+            applyMoodEvent(MOOD_EVENT_STREAK_BROKEN);
+            return;
+          }
+          if (leveledUp) {
+            applyMoodEvent(MOOD_EVENT_LEVEL_UP);
+            return;
+          }
+          if (streakHitMilestone) {
+            applyMoodEvent(MOOD_EVENT_STREAK_MILESTONE);
+            return;
+          }
+          applyMoodEvent(
+            tx.type === 'income'
+              ? moodEventForIncome(tx.amount)
+              : moodEventForExpense(tx.amount)
+          );
+        },
+
+        deleteTransaction(id) {
+          set(state => ({
+            transactions: state.transactions.filter(t => t.id !== id),
+          }));
+        },
+
+        addGoal(goal) {
+          const newGoal: Goal = { ...goal, id: Date.now().toString() };
+          set(state => ({ goals: [...state.goals, newGoal] }));
+        },
+
+        updateGoal(id, patch) {
+          set(state => ({
+            goals: state.goals.map(g => (g.id === id ? { ...g, ...patch } : g)),
+          }));
+        },
+
+        deleteGoal(id) {
+          set(state => ({ goals: state.goals.filter(g => g.id !== id) }));
+        },
+
+        contributeToGoal(goalId, amount) {
+          const state = get();
+          const target = state.goals.find(g => g.id === goalId);
+          if (!target) return;
+
+          const newSaved = Math.min(target.target, target.saved + amount);
+          const justCompleted =
+            target.saved < target.target && newSaved >= target.target;
+
+          set({
+            goals: state.goals.map(g =>
+              g.id === goalId ? { ...g, saved: newSaved } : g
+            ),
+          });
+
+          applyMoodEvent(
+            justCompleted
+              ? MOOD_EVENT_GOAL_COMPLETED
+              : moodEventForGoalContribution(amount)
+          );
+        },
+
+        // ── Kasumi actions ─────────────────────────────────────
+
+        markMet() {
+          if (get().hasMet) return;
+          set({
+            hasMet: true,
+            currentEvent: 'first_meeting',
+            currentMood: 'neutral',
+            currentLine: pickLine('first_meeting', 'stranger'),
+            moodExpiresAt: Date.now() + 6000,
+          });
+        },
+
+        refreshIdleLine() {
+          const tier = tierFromAffection(get().affection);
+          set({
+            currentEvent: 'idle',
+            currentMood: 'neutral',
+            currentLine: pickLine('idle', tier.key),
+            moodExpiresAt: null,
+          });
+        },
+
+        acknowledgeMood() {
+          const tier = tierFromAffection(get().affection);
+          set({
+            currentEvent: 'idle',
+            currentMood: 'neutral',
+            currentLine: pickLine('idle', tier.key),
+            moodExpiresAt: null,
+          });
+        },
+
+        tickMood() {
+          const { moodExpiresAt, currentEvent } = get();
+          if (!moodExpiresAt) return;
+          if (Date.now() >= moodExpiresAt && currentEvent !== 'idle') {
+            const tier = tierFromAffection(get().affection);
+            set({
+              currentEvent: 'idle',
+              currentMood: 'neutral',
+              currentLine: pickLine('idle', tier.key),
+              moodExpiresAt: null,
+            });
+          }
+        },
+
+        // ── Derived ────────────────────────────────────────────
+
+        getTotals() {
+          const { transactions } = get();
+          let income = 0, expenses = 0;
+          transactions.forEach(t => {
+            if (t.type === 'income') income += t.amount;
+            else expenses += t.amount;
+          });
+          return { income, expenses, balance: BASE_BALANCE + income - expenses };
+        },
+
+        getLevel() { return calcLevel(get().xp); },
+        getXpInLevel() { return calcXpInLevel(get().xp); },
+
+        getCategoryBreakdown() {
+          const { transactions } = get();
+          const map: Partial<Record<Category, number>> = {};
+          transactions
+            .filter(t => t.type === 'expense')
+            .forEach(t => { map[t.category] = (map[t.category] ?? 0) + t.amount; });
+          return (Object.entries(map) as [Category, number][]).sort((a, b) => b[1] - a[1]);
+        },
+
+        getLeaderboardWithMe() {
+          const { xp } = get();
+          const me: LeaderboardEntry = {
+            id: 'me', initials: 'ME', name: 'You',
+            xp, level: calcLevel(xp),
+            bg: '#1a1a2e', fg: '#ffffff', isMe: true,
           };
-        });
-      },
+          return [...STATIC_LEADERBOARD, me]
+            .sort((a, b) => b.xp - a.xp)
+            .map((entry, i) => ({ ...entry, rank: i + 1 }));
+        },
 
-      deleteTransaction(id) {
-        set(state => ({
-          transactions: state.transactions.filter(t => t.id !== id),
-        }));
-      },
+        getMonthlyTotals() {
+          const { transactions } = get();
+          const now = new Date();
+          const monthly = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+          });
+          let income = 0, expenses = 0;
+          monthly.forEach(t => {
+            if (t.type === 'income') income += t.amount;
+            else expenses += t.amount;
+          });
+          return { income, expenses, saved: Math.max(0, income - expenses) };
+        },
 
-      addGoal(goal) {
-        const newGoal: Goal = { ...goal, id: Date.now().toString() };
-        set(state => ({ goals: [...state.goals, newGoal] }));
-      },
-
-      updateGoal(id, patch) {
-        set(state => ({
-          goals: state.goals.map(g => (g.id === id ? { ...g, ...patch } : g)),
-        }));
-      },
-
-      deleteGoal(id) {
-        set(state => ({ goals: state.goals.filter(g => g.id !== id) }));
-      },
-
-      contributeToGoal(goalId, amount) {
-        set(state => ({
-          goals: state.goals.map(g =>
-            g.id === goalId
-              ? { ...g, saved: Math.min(g.target, g.saved + amount) }
-              : g
-          ),
-        }));
-      },
-
-      // ── Derived ────────────────────────────────────────────
-
-      getTotals() {
-        const { transactions } = get();
-        let income = 0, expenses = 0;
-        transactions.forEach(t => {
-          if (t.type === 'income') income += t.amount;
-          else expenses += t.amount;
-        });
-        return { income, expenses, balance: BASE_BALANCE + income - expenses };
-      },
-
-      getLevel() { return calcLevel(get().xp); },
-      getXpInLevel() { return calcXpInLevel(get().xp); },
-
-      getCategoryBreakdown() {
-        const { transactions } = get();
-        const map: Partial<Record<Category, number>> = {};
-        transactions
-          .filter(t => t.type === 'expense')
-          .forEach(t => { map[t.category] = (map[t.category] ?? 0) + t.amount; });
-        return (Object.entries(map) as [Category, number][]).sort((a, b) => b[1] - a[1]);
-      },
-
-      getLeaderboardWithMe() {
-        const { xp } = get();
-        const me: LeaderboardEntry = {
-          id: 'me', initials: 'ME', name: 'You',
-          xp, level: calcLevel(xp),
-          bg: '#1a1a2e', fg: '#ffffff', isMe: true,
-        };
-        return [...STATIC_LEADERBOARD, me]
-          .sort((a, b) => b.xp - a.xp)
-          .map((entry, i) => ({ ...entry, rank: i + 1 }));
-      },
-
-      getMonthlyTotals() {
-        const { transactions } = get();
-        const now = new Date();
-        const monthly = transactions.filter(t => {
-          const d = new Date(t.date);
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        });
-        let income = 0, expenses = 0;
-        monthly.forEach(t => {
-          if (t.type === 'income') income += t.amount;
-          else expenses += t.amount;
-        });
-        return { income, expenses, saved: Math.max(0, income - expenses) };
-      },
-    }),
+        getTier() {
+          return tierFromAffection(get().affection);
+        },
+      };
+    },
     {
       name: 'finapp-v1',
       storage: createJSONStorage(() => AsyncStorage),
@@ -215,6 +402,11 @@ export const useStore = create<StoreState>()(
         streak: state.streak,
         lastLogDate: state.lastLogDate,
         goals: state.goals,
+        // Kasumi persistence — keep affection + hasMet across sessions,
+        // but let the transient mood/line reset on each launch.
+        affection: state.affection,
+        hasMet: state.hasMet,
+        lastTierKey: state.lastTierKey,
       }),
     }
   )
