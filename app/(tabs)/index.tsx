@@ -3,16 +3,20 @@ import {
   View, Text, ScrollView, StyleSheet, Alert,
   TouchableOpacity, SafeAreaView,
 } from 'react-native';
+import { router } from 'expo-router';
 import { useStore } from '../../src/store/useStore';
 import {
   XpBar, GoalCard, TransactionItem, SectionTitle, EmptyState,
 } from '../../src/components';
 import AddTransactionModal from '../../src/components/AddTransactionModal';
+import { KasumiCard } from '../../src/kasumi/KasumiCard';
+import { KasumiDialogueModal } from '../../src/kasumi/KasumiDialogueModal';
 import { Colors, Spacing, Radius, FontWeight, XP_PER_LEVEL } from '../../src/theme';
 import { fmtCurrency, getGreeting } from '../../src/utils/format';
 
 export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
+  const [kasumiOpen, setKasumiOpen]     = useState(false);
 
   const transactions      = useStore(s => s.transactions);
   const xp                = useStore(s => s.xp);
@@ -51,6 +55,9 @@ export default function HomeScreen() {
             <Text style={styles.avatarText}>ME</Text>
           </View>
         </View>
+
+        {/* Kasumi (companion) — the gamified hero */}
+        <KasumiCard onOpenDialogue={() => setKasumiOpen(true)} />
 
         {/* Balance hero card */}
         <View style={styles.hero}>
@@ -112,6 +119,13 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       <AddTransactionModal visible={modalVisible} onClose={() => setModalVisible(false)} />
+
+      <KasumiDialogueModal
+        visible={kasumiOpen}
+        onClose={() => setKasumiOpen(false)}
+        onAddTransaction={() => setModalVisible(true)}
+        onOpenGoals={() => router.push('/goals')}
+      />
     </SafeAreaView>
   );
 }
