@@ -5,7 +5,6 @@ import {
   BASE_BALANCE,
   Category,
   XP_PER_LEVEL,
-  XP_PER_TX,
 } from '../theme';
 import { todayString, yesterdayString } from '../utils/format';
 import {
@@ -29,6 +28,12 @@ import {
   type Mood,
   type RelationshipTier,
 } from '../kasumi/dialogue';
+import {
+  BASE_XP_GOAL_CONTRIB,
+  BASE_XP_INCOME,
+  calcSavingXp,
+  type XpAward,
+} from '../kasumi/xp';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -82,6 +87,15 @@ interface StoreState {
   lastLogDate: string | null;
   goals: Goal[];
 
+  // ── Saving-streak tracking (separate from activity streak) ────
+  // savingStreak counts consecutive days with at least one saving
+  // action (income OR goal contribution). Drives XP multipliers.
+  savingStreak: number;
+  lastSavingDate: string | null;
+
+  // ── Last XP award (for transient UI feedback) ─────────────────
+  lastXpAward: XpAward | null;
+
   // ── Kasumi (companion) ────────────────────────────────────────
   affection: number;            // 0..100
   hasMet: boolean;              // false until first interaction with her
@@ -113,6 +127,8 @@ interface StoreState {
   getLeaderboardWithMe: () => Array<LeaderboardEntry & { rank: number }>;
   getMonthlyTotals: () => { income: number; expenses: number; saved: number };
   getTier: () => ReturnType<typeof tierFromAffection>;
+  isNetNegative: () => boolean;            // expenses > income overall
+  getDisplayMood: () => Mood;              // factors in net-negative override
 }
 
 const STATIC_LEADERBOARD: LeaderboardEntry[] = [
@@ -173,6 +189,11 @@ export const useStore = create<StoreState>()(
         lastLogDate: null,
         goals: DEFAULT_GOALS,
 
+        // Saving-streak defaults
+        savingStreak: 0,
+        lastSavingDate: null,
+        lastXpAward: null,
+
         // Kasumi defaults
         affection: 0,
         hasMet: false,
@@ -193,26 +214,44 @@ export const useStore = create<StoreState>()(
             date: new Date().toISOString(),
           };
 
-          // Streak math — same as before, but we also need to know
-          // whether the streak just broke so Kasumi can react.
           const state = get();
-          let { streak, lastLogDate } = state;
+          let { streak, lastLogDate, savingStreak, lastSavingDate } = state;
           let streakBroke = false;
           let streakHitMilestone = false;
           const oldLevel = calcLevel(state.xp);
 
+          // ── Activity streak (any transaction) ─────────────────
           if (lastLogDate !== today) {
             if (lastLogDate === yesterday || lastLogDate === null) {
               streak = lastLogDate === yesterday ? streak + 1 : 1;
             } else {
-              // Gap > 1 day → streak resets and Kasumi notices.
               streakBroke = lastLogDate !== null;
               streak = 1;
             }
           }
           if (STREAK_MILESTONES.includes(streak)) streakHitMilestone = true;
 
-          const newXp = state.xp + XP_PER_TX;
+          // ── Saving streak (income only — expenses don't count) ─
+          // Updated BEFORE XP calc so today's saving counts toward today's gate.
+          if (tx.type === 'income') {
+            if (lastSavingDate !== today) {
+              if (lastSavingDate === yesterday || lastSavingDate === null) {
+                savingStreak = lastSavingDate === yesterday ? savingStreak + 1 : 1;
+              } else {
+                savingStreak = 1;
+              }
+              lastSavingDate = today;
+            }
+          }
+
+          // ── XP award ─────────────────────────────────────────
+          // Expenses earn nothing. Income earns base × multiplier (streak-gated).
+          let award: XpAward | null = null;
+          if (tx.type === 'income') {
+            award = calcSavingXp(BASE_XP_INCOME, tx.amount, savingStreak);
+          }
+          const xpDelta = award?.amount ?? 0;
+          const newXp = state.xp + xpDelta;
           const newLevel = calcLevel(newXp);
           const leveledUp = newLevel > oldLevel;
 
@@ -221,25 +260,16 @@ export const useStore = create<StoreState>()(
             xp: newXp,
             streak,
             lastLogDate: today,
+            savingStreak,
+            lastSavingDate,
+            lastXpAward: award,
           });
 
-          // Decide which mood event wins. Priority order:
-          //   1. Streak broken (loud negative signal — overrides others)
-          //   2. Goal-completion / level-up (positive milestones)
-          //   3. Streak milestone
-          //   4. The transaction itself (income / small / big expense)
-          if (streakBroke) {
-            applyMoodEvent(MOOD_EVENT_STREAK_BROKEN);
-            return;
-          }
-          if (leveledUp) {
-            applyMoodEvent(MOOD_EVENT_LEVEL_UP);
-            return;
-          }
-          if (streakHitMilestone) {
-            applyMoodEvent(MOOD_EVENT_STREAK_MILESTONE);
-            return;
-          }
+          // ── Kasumi mood reaction ─────────────────────────────
+          // Priority: streak-broken > level-up > streak-milestone > the tx itself
+          if (streakBroke) { applyMoodEvent(MOOD_EVENT_STREAK_BROKEN); return; }
+          if (leveledUp) { applyMoodEvent(MOOD_EVENT_LEVEL_UP); return; }
+          if (streakHitMilestone) { applyMoodEvent(MOOD_EVENT_STREAK_MILESTONE); return; }
           applyMoodEvent(
             tx.type === 'income'
               ? moodEventForIncome(tx.amount)
@@ -269,6 +299,8 @@ export const useStore = create<StoreState>()(
         },
 
         contributeToGoal(goalId, amount) {
+          const today = todayString();
+          const yesterday = yesterdayString();
           const state = get();
           const target = state.goals.find(g => g.id === goalId);
           if (!target) return;
@@ -277,17 +309,41 @@ export const useStore = create<StoreState>()(
           const justCompleted =
             target.saved < target.target && newSaved >= target.target;
 
+          // Saving streak bump (goal contributions count as saving).
+          let { savingStreak, lastSavingDate } = state;
+          if (lastSavingDate !== today) {
+            if (lastSavingDate === yesterday || lastSavingDate === null) {
+              savingStreak = lastSavingDate === yesterday ? savingStreak + 1 : 1;
+            } else {
+              savingStreak = 1;
+            }
+            lastSavingDate = today;
+          }
+
+          // XP award with multiplier (streak-gated).
+          const award = calcSavingXp(BASE_XP_GOAL_CONTRIB, amount, savingStreak);
+          const oldLevel = calcLevel(state.xp);
+          const newXp = state.xp + award.amount;
+          const leveledUp = calcLevel(newXp) > oldLevel;
+
           set({
             goals: state.goals.map(g =>
               g.id === goalId ? { ...g, saved: newSaved } : g
             ),
+            xp: newXp,
+            savingStreak,
+            lastSavingDate,
+            lastXpAward: award,
           });
 
-          applyMoodEvent(
-            justCompleted
-              ? MOOD_EVENT_GOAL_COMPLETED
-              : moodEventForGoalContribution(amount)
-          );
+          // Mood priority: goal-completed > level-up > regular contribution.
+          if (justCompleted) {
+            applyMoodEvent(MOOD_EVENT_GOAL_COMPLETED);
+          } else if (leveledUp) {
+            applyMoodEvent(MOOD_EVENT_LEVEL_UP);
+          } else {
+            applyMoodEvent(moodEventForGoalContribution(amount));
+          }
         },
 
         // ── Kasumi actions ─────────────────────────────────────
@@ -391,6 +447,31 @@ export const useStore = create<StoreState>()(
         getTier() {
           return tierFromAffection(get().affection);
         },
+
+        isNetNegative() {
+          const { transactions } = get();
+          let income = 0, expenses = 0;
+          for (const t of transactions) {
+            if (t.type === 'income') income += t.amount;
+            else expenses += t.amount;
+          }
+          // Only flag once there's actual spending to react to.
+          return expenses > 0 && expenses > income;
+        },
+
+        getDisplayMood() {
+          // If the user is overspending, Kasumi stays visibly sad until
+          // they recover — this overrides whatever transient reaction
+          // would otherwise be showing.
+          const state = get();
+          let income = 0, expenses = 0;
+          for (const t of state.transactions) {
+            if (t.type === 'income') income += t.amount;
+            else expenses += t.amount;
+          }
+          if (expenses > 0 && expenses > income) return 'sad';
+          return state.currentMood;
+        },
       };
     },
     {
@@ -402,6 +483,9 @@ export const useStore = create<StoreState>()(
         streak: state.streak,
         lastLogDate: state.lastLogDate,
         goals: state.goals,
+        // Saving-streak persistence
+        savingStreak: state.savingStreak,
+        lastSavingDate: state.lastSavingDate,
         // Kasumi persistence — keep affection + hasMet across sessions,
         // but let the transient mood/line reset on each launch.
         affection: state.affection,
