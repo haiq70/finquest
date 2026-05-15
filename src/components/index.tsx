@@ -189,14 +189,14 @@ export function LeaderboardItem({ item }: LbItemProps) {
 }
 const lbStyles = StyleSheet.create({
   row:       { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 0.5, borderColor: Colors.border, padding: Spacing.md, marginBottom: Spacing.sm },
-  rowMe:     { borderColor: Colors.primary, backgroundColor: '#f5f3ff' },
+  rowMe:     { borderColor: '#ec4899', backgroundColor: '#fdf2f8' },
   rank:      { fontSize: 16, fontWeight: FontWeight.bold, width: 24, textAlign: 'center' },
   avatar:    { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   avatarText:{ fontSize: 13, fontWeight: FontWeight.semibold },
   info:      { flex: 1 },
   name:      { fontSize: 14, fontWeight: FontWeight.medium, color: Colors.textPrimary },
   pts:       { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  youBadge:  { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
+  youBadge:  { backgroundColor: '#ec4899', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
   youText:   { color: '#fff', fontSize: 10, fontWeight: FontWeight.bold },
 });
 

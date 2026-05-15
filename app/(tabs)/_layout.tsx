@@ -16,7 +16,7 @@ function TabIcon({ name, focused, size }: TabIconProps) {
     <Ionicons
       name={focused ? name : `${name}-outline` as IoniconsName}
       size={size}
-      color={focused ? Colors.primary : Colors.textMuted}
+      color={focused ? '#ec4899' : Colors.textMuted}
     />
   );
 }
@@ -27,8 +27,8 @@ export default function TabLayout() {
       screenOptions={{
         headerStyle:            { backgroundColor: Colors.background },
         headerShadowVisible:    false,
-        headerTitleStyle:       { fontWeight: FontWeight.semibold, fontSize: 17, color: Colors.textPrimary },
-        tabBarActiveTintColor:  Colors.primary,
+        headerTitleStyle:       { fontWeight: FontWeight.bold, fontSize: 18, color: Colors.textPrimary, letterSpacing: -0.3 },
+        tabBarActiveTintColor:  '#ec4899',
         tabBarInactiveTintColor:Colors.textMuted,
         tabBarStyle: {
           backgroundColor: Colors.surface,
@@ -37,7 +37,7 @@ export default function TabLayout() {
           height: Platform.OS === 'ios' ? 84 : 60,
           paddingBottom: Platform.OS === 'ios' ? 24 : 8,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: FontWeight.medium },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: FontWeight.semibold },
       }}
     >
       <Tabs.Screen
