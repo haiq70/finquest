@@ -28,7 +28,11 @@ export function AchievementToast({ achievement, onDismiss }: Props) {
     Animated.parallel([
       Animated.timing(translateY, { toValue: -120, duration: 280, useNativeDriver: true }),
       Animated.timing(opacity,    { toValue: 0,    duration: 280, useNativeDriver: true }),
-    ]).start(onDismiss);
+    ]).start(({ finished }) => {
+      // Only fire the callback if the animation ran to completion —
+      // prevents double-clearing if the component unmounts mid-animation.
+      if (finished) onDismiss();
+    });
   }, [translateY, opacity, onDismiss]);
 
   useEffect(() => {
@@ -87,21 +91,23 @@ export function AchievementToast({ achievement, onDismiss }: Props) {
   );
 }
 
-// ── Queue controller — renders one at a time ──────────────────────────
+// ── Queue controller — renders one at a time, steps through the queue ─
 export function AchievementQueue() {
-  const pending     = useStore(s => s.pendingAchievements);
-  const clearPending = useStore(s => s.clearPendingAchievements);
+  const pending          = useStore(s => s.pendingAchievements);
+  const clearPending     = useStore(s => s.clearPendingAchievements);
+  const shiftPending     = useStore(s => s.shiftPendingAchievement);
 
-  // Show one at a time — the first in the queue.
-  // When it's dismissed we clear the whole batch (they were all earned
-  // in the same action, so showing once is enough for UX).
   if (pending.length === 0) return null;
+
+  // If there's only one left, dismissing it clears the queue entirely.
+  // If there are more, dismissing advances to the next.
+  const onDismiss = pending.length <= 1 ? clearPending : shiftPending;
 
   return (
     <AchievementToast
       key={pending[0].id}
       achievement={pending[0]}
-      onDismiss={clearPending}
+      onDismiss={onDismiss}
     />
   );
 }

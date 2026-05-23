@@ -1,4 +1,5 @@
 export function fmtCurrency(amount: number): string {
+  if (!isFinite(amount)) return '€0';
   return '€' + amount.toLocaleString('en', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,

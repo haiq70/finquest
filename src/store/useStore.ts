@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeStorage } from '../utils/safeStorage';
 import {
   BASE_BALANCE,
   Category,
@@ -112,12 +112,11 @@ interface StoreState {
 
   // ── Achievements ──────────────────────────────────────────────
   unlockedAchievementIds: string[];
-  // Achievements earned in the most recent action — consumed by the
-  // toast/modal after being read, then cleared.
   pendingAchievements: AchievementDef[];
 
   // Actions
   clearPendingAchievements: () => void;
+  shiftPendingAchievement: () => void; // remove first, keep rest
   addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => void;
   deleteTransaction: (id: string) => void;
   addGoal: (goal: Omit<Goal, 'id'>) => void;
@@ -246,6 +245,10 @@ export const useStore = create<StoreState>()(
 
         clearPendingAchievements() {
           set({ pendingAchievements: [] });
+        },
+
+        shiftPendingAchievement() {
+          set(st => ({ pendingAchievements: st.pendingAchievements.slice(1) }));
         },
 
         addTransaction(tx) {
@@ -522,7 +525,7 @@ export const useStore = create<StoreState>()(
     },
     {
       name: 'finapp-v1',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeStorage),
       partialize: state => ({
         transactions: state.transactions,
         xp: state.xp,

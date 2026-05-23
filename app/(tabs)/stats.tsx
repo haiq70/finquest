@@ -35,8 +35,21 @@ export default function StatsScreen() {
     return { label, isToday, active };
   });
 
-  const avgExpense = transactions.filter(t => t.type === 'expense').length > 0
-    ? monthly.expenses / Math.max(1, new Date().getDate())
+  // Count unique days that had at least one expense this month — avoids
+  // dividing by calendar days that had zero spending (misleadingly low average).
+  const expenseDaysThisMonth = new Set(
+    transactions
+      .filter(t => {
+        const d = new Date(t.date);
+        const now = new Date();
+        return t.type === 'expense' &&
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear();
+      })
+      .map(t => new Date(t.date).toDateString())
+  ).size;
+  const avgExpense = expenseDaysThisMonth > 0
+    ? monthly.expenses / expenseDaysThisMonth
     : 0;
 
   return (
@@ -78,7 +91,7 @@ export default function StatsScreen() {
           <View style={[styles.gridRow, { marginTop: Spacing.sm }]}>
             <StatCard label="Saved" value={fmtCurrency(monthly.saved)} sub="income − expenses" />
             <View style={{ width: Spacing.sm }} />
-            <StatCard label="Daily avg" value={fmtCurrency(avgExpense)} sub="avg spend/day" />
+            <StatCard label="Avg/day" value={fmtCurrency(avgExpense)} sub="on days you spend" />
           </View>
         </View>
 
@@ -90,7 +103,7 @@ export default function StatsScreen() {
               key={i}
               style={[
                 styles.dayDot,
-                d.active && styles.dayDotDone,
+                d.active && !d.isToday && styles.dayDotDone,
                 d.isToday && styles.dayDotToday,
               ]}
             >

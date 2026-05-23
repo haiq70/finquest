@@ -63,8 +63,8 @@ function expenseCount(txs: Transaction[]): number {
 function completedGoals(goals: Goal[]): number {
   return goals.filter(g => g.saved >= g.target).length;
 }
-function uniqueCategories(txs: Transaction[]): number {
-  return new Set(txs.map(t => t.category)).size;
+function uniqueExpenseCategories(txs: Transaction[]): number {
+  return new Set(txs.filter(t => t.type === 'expense').map(t => t.category)).size;
 }
 
 // ── Achievement catalogue ─────────────────────────────────────────────
@@ -290,7 +290,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: '🎯',
     rarity: 'common',
     category: 'goals',
-    check: s => s.goals.length >= 1,
+    // DEFAULT_GOALS have ids 'g1','g2','g3' — only count user-created ones
+    check: s => s.goals.some(g => !['g1', 'g2', 'g3'].includes(g.id)),
     kasumiLines: {
       stranger:     "A goal. Good. Dreams need a container.",
       acquaintance: "Your first goal! Now we have something to work toward.",
@@ -360,7 +361,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: '🎨',
     rarity: 'rare',
     category: 'spending',
-    check: s => uniqueCategories(s.transactions) >= 5,
+    check: s => uniqueExpenseCategories(s.transactions) >= 5,
     kasumiLines: {
       stranger:     "Five categories tracked. You're starting to see the whole picture.",
       acquaintance: "Five categories! Your financial life has texture now.",

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Modal, ScrollView, KeyboardAvoidingView, Platform, Alert,
@@ -22,6 +22,17 @@ export default function AddTransactionModal({ visible, onClose }: Props) {
 
   const categories = txType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
+  // Reset form state every time the modal is opened so stale values
+  // from a previous (dismissed) session never leak through.
+  useEffect(() => {
+    if (visible) {
+      setTxType('expense');
+      setAmount('');
+      setDesc('');
+      setCategory('🍔 Food');
+    }
+  }, [visible]);
+
   const handleTypeSwitch = useCallback((t: TxType) => {
     setTxType(t);
     setCategory(t === 'income' ? '💼 Salary' : '🍔 Food');
@@ -38,10 +49,6 @@ export default function AddTransactionModal({ visible, onClose }: Props) {
       return;
     }
     addTransaction({ type: txType, amount: parsed, description: description.trim(), category });
-    setAmount('');
-    setDesc('');
-    setTxType('expense');
-    setCategory('🍔 Food');
     onClose();
   }, [amount, description, txType, category, addTransaction, onClose]);
 

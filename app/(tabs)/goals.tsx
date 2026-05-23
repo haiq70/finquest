@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, SafeAreaView,
-  TouchableOpacity, Alert, Modal, TextInput,
-  KeyboardAvoidingView, Platform,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView, StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useStore, type Goal } from '../../src/store/useStore';
-import { Colors, Spacing, Radius, FontWeight } from '../../src/theme';
+import { EmptyState, PrimaryButton, SectionTitle } from '../../src/components';
+import { useStore } from '../../src/store/useStore';
+import { Colors, FontWeight, Radius, Spacing } from '../../src/theme';
 import { fmtCurrency } from '../../src/utils/format';
-import { PrimaryButton, SectionTitle, EmptyState } from '../../src/components';
 
 const GOAL_ICONS = ['🏖️', '💻', '🛡️', '🚗', '🏠', '📚', '💍', '✈️', '🎮', '🏋️'];
 const GOAL_COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444', '#ec4899'];
@@ -52,7 +59,12 @@ export default function GoalsScreen() {
     ]);
   };
 
-  const contribGoal = goals.find(g => g.id === contribId);
+  const contribGoal = goals.find(g => g.id === contribId) ?? null;
+
+  // If the goal was deleted while the contribute modal was open, close it.
+  React.useEffect(() => {
+    if (contribId && !contribGoal) setContribId(null);
+  }, [contribId, contribGoal]);
 
   return (
     <SafeAreaView style={styles.safe}>
