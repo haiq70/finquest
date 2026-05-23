@@ -34,6 +34,11 @@ import {
   calcSavingXp,
   type XpAward,
 } from '../kasumi/xp';
+import {
+  checkNewAchievements,
+  type AchievementDef,
+  type AchievementSnapshot,
+} from '../kasumi/achievements';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -105,7 +110,14 @@ interface StoreState {
   currentLine: string;          // line associated with currentEvent
   moodExpiresAt: number | null; // epoch ms when mood relaxes to idle
 
+  // ── Achievements ──────────────────────────────────────────────
+  unlockedAchievementIds: string[];
+  // Achievements earned in the most recent action — consumed by the
+  // toast/modal after being read, then cleared.
+  pendingAchievements: AchievementDef[];
+
   // Actions
+  clearPendingAchievements: () => void;
   addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => void;
   deleteTransaction: (id: string) => void;
   addGoal: (goal: Omit<Goal, 'id'>) => void;
@@ -182,6 +194,29 @@ export const useStore = create<StoreState>()(
         });
       }
 
+      // ── Achievement helper ──────────────────────────────────────
+      const checkAndQueueAchievements = () => {
+        const s = get();
+        const snap: AchievementSnapshot = {
+          transactions: s.transactions,
+          xp: s.xp,
+          streak: s.streak,
+          savingStreak: s.savingStreak,
+          goals: s.goals,
+          affection: s.affection,
+          unlockedIds: s.unlockedAchievementIds,
+        };
+        const newOnes = checkNewAchievements(snap);
+        if (newOnes.length === 0) return;
+        set(st => ({
+          unlockedAchievementIds: [
+            ...st.unlockedAchievementIds,
+            ...newOnes.map(a => a.id),
+          ],
+          pendingAchievements: [...st.pendingAchievements, ...newOnes],
+        }));
+      };
+
       return {
         transactions: [],
         xp: 0,
@@ -203,7 +238,15 @@ export const useStore = create<StoreState>()(
         currentLine: '',
         moodExpiresAt: null,
 
+        // Achievement defaults
+        unlockedAchievementIds: [],
+        pendingAchievements: [],
+
         // ── Actions ────────────────────────────────────────────
+
+        clearPendingAchievements() {
+          set({ pendingAchievements: [] });
+        },
 
         addTransaction(tx) {
           const today = todayString();
@@ -267,14 +310,15 @@ export const useStore = create<StoreState>()(
 
           // ── Kasumi mood reaction ─────────────────────────────
           // Priority: streak-broken > level-up > streak-milestone > the tx itself
-          if (streakBroke) { applyMoodEvent(MOOD_EVENT_STREAK_BROKEN); return; }
-          if (leveledUp) { applyMoodEvent(MOOD_EVENT_LEVEL_UP); return; }
-          if (streakHitMilestone) { applyMoodEvent(MOOD_EVENT_STREAK_MILESTONE); return; }
+          if (streakBroke) { applyMoodEvent(MOOD_EVENT_STREAK_BROKEN); checkAndQueueAchievements(); return; }
+          if (leveledUp) { applyMoodEvent(MOOD_EVENT_LEVEL_UP); checkAndQueueAchievements(); return; }
+          if (streakHitMilestone) { applyMoodEvent(MOOD_EVENT_STREAK_MILESTONE); checkAndQueueAchievements(); return; }
           applyMoodEvent(
             tx.type === 'income'
               ? moodEventForIncome(tx.amount)
               : moodEventForExpense(tx.amount)
           );
+          checkAndQueueAchievements();
         },
 
         deleteTransaction(id) {
@@ -286,6 +330,7 @@ export const useStore = create<StoreState>()(
         addGoal(goal) {
           const newGoal: Goal = { ...goal, id: Date.now().toString() };
           set(state => ({ goals: [...state.goals, newGoal] }));
+          checkAndQueueAchievements();
         },
 
         updateGoal(id, patch) {
@@ -344,6 +389,7 @@ export const useStore = create<StoreState>()(
           } else {
             applyMoodEvent(moodEventForGoalContribution(amount));
           }
+          checkAndQueueAchievements();
         },
 
         // ── Kasumi actions ─────────────────────────────────────
@@ -491,6 +537,8 @@ export const useStore = create<StoreState>()(
         affection: state.affection,
         hasMet: state.hasMet,
         lastTierKey: state.lastTierKey,
+        // Achievement persistence
+        unlockedAchievementIds: state.unlockedAchievementIds,
       }),
     }
   )
