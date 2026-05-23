@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Animated,
+  ImageBackground,
   SafeAreaView,
   ScrollView, StyleSheet,
   Text,
@@ -96,6 +97,11 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <ImageBackground
+        source={require('../../assets/images/ui/bg-pattern.png')}
+        style={styles.bgPattern}
+        resizeMode="cover"
+      >
       {/* Soft pink corner glow */}
       <View style={styles.pageGlow} pointerEvents="none" />
 
@@ -216,6 +222,7 @@ export default function HomeScreen() {
         onAddTransaction={() => setModalVisible(true)}
         onOpenGoals={() => router.push('/goals')}
       />
+      </ImageBackground>
     </SafeAreaView>
   );
 }
@@ -272,7 +279,7 @@ function AchievementsTeaser({ unlockedIds }: { unlockedIds: string[] }) {
 }
 
 const teaserStyles = StyleSheet.create({
-  card:   { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, backgroundColor: '#1a1a2e', borderRadius: Radius.xl, padding: Spacing.lg },
+  card:   { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, backgroundColor: '#4c1d95', borderRadius: Radius.xl, padding: Spacing.lg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
   title:  { fontSize: 14, fontWeight: FontWeight.bold, color: '#fff' },
   count:  { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: FontWeight.semibold },
@@ -287,6 +294,7 @@ const teaserStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   safe:        { flex: 1, backgroundColor: PALETTE.bg },
+  bgPattern:   { flex: 1 },
   scroll:      { paddingBottom: 100 },
 
   pageGlow: {

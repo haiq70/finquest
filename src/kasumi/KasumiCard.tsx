@@ -18,6 +18,18 @@ const FACES: Record<Mood, any> = {
   sad:     require('../../assets/images/kasumi/sad.jpeg'),
 };
 
+// Mood badge icons (kawaii heart / sparkle / teardrop) shown on the portrait.
+const MOOD_ICONS: Record<Mood, any> = {
+  happy:   require('../../assets/images/ui/mood_happy.png'),
+  neutral: require('../../assets/images/ui/mood_neutral.png'),
+  sad:     require('../../assets/images/ui/mood_sad.png'),
+};
+
+const HEART_BTN     = require('../../assets/images/ui/heart_button.png');
+const SPARKLE       = require('../../assets/images/ui/sparkle.png');
+const DOT           = require('../../assets/images/ui/dot.png');
+const HEART_SPARKLE = require('../../assets/images/ui/heart-sparkle.png');
+
 interface KasumiCardProps {
   onOpenDialogue?: () => void;
 }
@@ -79,22 +91,22 @@ export function KasumiCard({ onOpenDialogue }: KasumiCardProps) {
       <View style={styles.bgGlow} />
 
       {/* Decorative sparkles */}
-      <Text style={[styles.sparkle, { top: 10, right: 18 }]}>✦</Text>
-      <Text style={[styles.sparkle, { bottom: 96, right: 36, fontSize: 12, opacity: 0.5 }]}>✧</Text>
-      <Text style={[styles.sparkle, { top: 40, left: 14, fontSize: 10, opacity: 0.45 }]}>✦</Text>
+      <Image source={SPARKLE} style={[styles.sparkleImg, { top: 8, right: 16, width: 22, height: 22 }]} />
+      <Image source={DOT}     style={[styles.sparkleImg, { bottom: 92, right: 34, width: 14, height: 14, opacity: 0.7 }]} />
+      <Image source={SPARKLE} style={[styles.sparkleImg, { top: 38, left: 12, width: 13, height: 13, opacity: 0.6 }]} />
 
       {/* Top row: large portrait + identity */}
       <View style={styles.topRow}>
         <View style={styles.portraitWrap}>
           <View style={[styles.portraitRing, { borderColor: tier.accent + '55' }]} />
           <Image source={FACES[displayMood]} style={styles.portrait} resizeMode="cover" />
-          <View style={[styles.moodDot, moodDotStyle(displayMood)]} />
+          <Image source={MOOD_ICONS[displayMood]} style={styles.moodIcon} resizeMode="contain" />
         </View>
 
         <View style={styles.identity}>
           <View style={styles.nameRow}>
             <Text style={styles.name}>Kasumi</Text>
-            <Text style={styles.heart}>♡</Text>
+            <Image source={HEART_SPARKLE} style={styles.nameHeart} resizeMode="contain" />
           </View>
           <View style={[styles.tierPill, { backgroundColor: tier.accent + '22', borderColor: tier.accent + '88' }]}>
             <Text style={[styles.tierText, { color: tier.accent }]}>{tier.label}</Text>
@@ -121,21 +133,13 @@ export function KasumiCard({ onOpenDialogue }: KasumiCardProps) {
             {displayLine}
           </Text>
           <View style={styles.bubbleCtaWrap}>
-            <Text style={styles.bubbleCtaHeart}>♡</Text>
+            <Image source={HEART_BTN} style={styles.bubbleCtaImg} resizeMode="contain" />
             <Text style={styles.bubbleCta}>Tap to talk</Text>
           </View>
         </View>
       ) : null}
     </Pressable>
   );
-}
-
-function moodDotStyle(mood: Mood) {
-  switch (mood) {
-    case 'happy': return { backgroundColor: '#22c55e' };
-    case 'sad':   return { backgroundColor: '#ef4444' };
-    default:      return { backgroundColor: '#a78bfa' };
-  }
 }
 
 const styles = StyleSheet.create({
@@ -166,11 +170,8 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
 
-  sparkle: {
+  sparkleImg: {
     position: 'absolute',
-    color: '#c4b5fd',
-    fontSize: 16,
-    opacity: 0.7,
   },
 
   topRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
@@ -186,16 +187,15 @@ const styles = StyleSheet.create({
     borderWidth: 3, borderColor: '#fff',
     backgroundColor: '#eee',
   },
-  moodDot: {
-    position: 'absolute', bottom: 4, right: 4,
-    width: 16, height: 16, borderRadius: 8,
-    borderWidth: 2, borderColor: '#fff',
+  moodIcon: {
+    position: 'absolute', bottom: -2, right: -2,
+    width: 28, height: 28,
   },
 
   identity: { flex: 1, gap: 6 },
   nameRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name:     { fontSize: 19, fontWeight: FontWeight.bold, color: '#4c1d95', letterSpacing: -0.3 },
-  heart:    { fontSize: 14, color: '#ec4899' },
+  nameHeart: { width: 18, height: 18 },
 
   tierPill: {
     alignSelf: 'flex-start',
@@ -244,6 +244,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: Radius.full,
   },
-  bubbleCtaHeart: { fontSize: 12, color: '#ec4899' },
+  bubbleCtaImg:   { width: 16, height: 16 },
   bubbleCta:      { fontSize: 11, color: '#be185d', fontWeight: FontWeight.bold, letterSpacing: 0.3 },
 });
