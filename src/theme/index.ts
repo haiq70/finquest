@@ -1,22 +1,25 @@
 export const Colors = {
-  dark: '#1a1a2e',
-  primary: '#6366f1',
-  primaryLight: '#e0e7ff',
-  income: '#22c55e',
-  incomeLight: '#dcfce7',
-  expense: '#ef4444',
-  expenseLight: '#fee2e2',
-  surface: '#ffffff',
-  background: '#f4f4f8',
-  border: '#e5e7eb',
-  textPrimary: '#111827',
-  textSecondary: '#6b7280',
-  textMuted: '#9ca3af',
-  gold: '#f59e0b',
-  silver: '#94a3b8',
-  bronze: '#b45309',
-  purple: '#8b5cf6',
-  cyan: '#06b6d4',
+  dark:          '#4c1d95',  // deep purple (was navy) — used for hero cards, dark fills
+  primary:       '#a855f7',  // lavender accent
+  primaryLight:  '#f3e8ff',  // pale lavender fill
+  income:        '#22c55e',
+  incomeLight:   '#dcfce7',
+  expense:       '#ef4444',
+  expenseLight:  '#fee2e2',
+  surface:       '#ffffff',
+  background:    '#faf5ff',  // page background — soft lavender (was off-white)
+  border:        '#ede9fe',  // pastel lavender border (was cool grey)
+  textPrimary:   '#3b0764',  // deep aubergine (was near-black)
+  textSecondary: '#7e22ce',  // muted purple (was cool grey)
+  textMuted:     '#a78bfa',  // soft lavender (was light grey)
+  gold:          '#f59e0b',
+  silver:        '#a78bfa',
+  bronze:        '#ec4899',  // pink for 3rd place to fit palette
+  purple:        '#a855f7',
+  cyan:          '#ec4899',  // re-used as pink accent in some chart bars
+  pink:          '#ec4899',
+  pinkDeep:      '#be185d',
+  accentDeep:    '#7c3aed',
 } as const;
 
 export const Spacing = {
@@ -80,14 +83,14 @@ export const INCOME_CATEGORIES: Category[] = [
 ];
 
 export const CategoryMeta: Record<Category, { bg: string; bar: string }> = {
-  '🍔 Food':      { bg: '#fff7ed', bar: '#6366f1' },
-  '🚗 Transport': { bg: '#eff6ff', bar: '#06b6d4' },
-  '🎬 Fun':       { bg: '#fdf4ff', bar: '#8b5cf6' },
-  '🏠 Home':      { bg: '#f0fdf4', bar: '#22c55e' },
-  '🏥 Health':    { bg: '#fff1f2', bar: '#ef4444' },
-  '💼 Salary':    { bg: '#f0fdf4', bar: '#f59e0b' },
-  '💰 Freelance': { bg: '#fefce8', bar: '#84cc16' },
-  '📦 Other':     { bg: '#f8fafc', bar: '#94a3b8' },
+  '🍔 Food':      { bg: '#fef3c7', bar: '#f59e0b' },
+  '🚗 Transport': { bg: '#dbeafe', bar: '#3b82f6' },
+  '🎬 Fun':       { bg: '#fce7f3', bar: '#ec4899' },
+  '🏠 Home':      { bg: '#dcfce7', bar: '#22c55e' },
+  '🏥 Health':    { bg: '#fee2e2', bar: '#ef4444' },
+  '💼 Salary':    { bg: '#ede9fe', bar: '#a855f7' },
+  '💰 Freelance': { bg: '#f3e8ff', bar: '#8b5cf6' },
+  '📦 Other':     { bg: '#f3e8ff', bar: '#a78bfa' },
 };
 
 export const XP_PER_TX = 20;
