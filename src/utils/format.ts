@@ -37,9 +37,9 @@ export function getGreeting(): string {
   return 'Good evening';
 }
 
-export function groupByDate(
-  items: Array<{ date: string; [key: string]: any }>
-): Array<{ title: string; data: typeof items }> {
+export function groupByDate<T extends { date: string }>(
+  items: T[]
+): Array<{ title: string; data: T[] }> {
   const map = new Map<string, typeof items>();
   items.forEach(item => {
     const d = new Date(item.date).toDateString();

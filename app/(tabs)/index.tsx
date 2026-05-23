@@ -1,19 +1,29 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View, Text, ScrollView, StyleSheet, Alert,
-  TouchableOpacity, SafeAreaView, Animated,
-} from 'react-native';
 import { router } from 'expo-router';
-import { useStore } from '../../src/store/useStore';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  XpBar, GoalCard, TransactionItem, SectionTitle, EmptyState,
+  Alert,
+  Animated,
+  SafeAreaView,
+  ScrollView, StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {
+  EmptyState,
+  GoalCard,
+  SectionTitle,
+  TransactionItem,
+  XpBar,
 } from '../../src/components';
 import AddTransactionModal from '../../src/components/AddTransactionModal';
+import { ACHIEVEMENTS, RARITY_COLORS } from '../../src/kasumi/achievements';
 import { KasumiCard } from '../../src/kasumi/KasumiCard';
 import { KasumiDialogueModal } from '../../src/kasumi/KasumiDialogueModal';
-import { Spacing, Radius, FontWeight, XP_PER_LEVEL } from '../../src/theme';
-import { fmtCurrency, getGreeting } from '../../src/utils/format';
 import { MULTIPLIER_STREAK_GATE } from '../../src/kasumi/xp';
+import { useStore } from '../../src/store/useStore';
+import { FontWeight, Radius, Spacing, XP_PER_LEVEL } from '../../src/theme';
+import { fmtCurrency, getGreeting } from '../../src/utils/format';
 
 // Lavender/pink palette — overrides Colors where the restyle calls for it.
 const PALETTE = {
@@ -42,6 +52,7 @@ export default function HomeScreen() {
   const savingStreak      = useStore(s => s.savingStreak);
   const goals             = useStore(s => s.goals);
   const lastXpAward       = useStore(s => s.lastXpAward);
+  const unlockedIds       = useStore(s => s.unlockedAchievementIds);
   const getTotals         = useStore(s => s.getTotals);
   const getLevel          = useStore(s => s.getLevel);
   const getXpInLevel      = useStore(s => s.getXpInLevel);
@@ -162,6 +173,9 @@ export default function HomeScreen() {
           </>
         )}
 
+        {/* Achievements teaser */}
+        <AchievementsTeaser unlockedIds={unlockedIds} />
+
         {/* Recent transactions */}
         <SectionTitle style={{ marginTop: Spacing.sm }}>Recent  ✦</SectionTitle>
         {recent.length === 0 ? (
@@ -205,6 +219,71 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
+// ── Achievements teaser widget ────────────────────────────────────────
+function AchievementsTeaser({ unlockedIds }: { unlockedIds: string[] }) {
+  const total    = ACHIEVEMENTS.length;
+  const unlocked = unlockedIds.length;
+  const pct      = Math.round((unlocked / total) * 100);
+
+  // Show the 3 most recently unlocked
+  const recentUnlocked = ACHIEVEMENTS
+    .filter(a => unlockedIds.includes(a.id))
+    .slice(-3)
+    .reverse();
+
+  return (
+    <TouchableOpacity
+      style={teaserStyles.card}
+      onPress={() => router.push('/achievements')}
+      activeOpacity={0.85}
+    >
+      <View style={teaserStyles.header}>
+        <Text style={teaserStyles.title}>Achievements</Text>
+        <Text style={teaserStyles.count}>{unlocked}/{total}</Text>
+      </View>
+      <View style={teaserStyles.track}>
+        <View style={[teaserStyles.fill, { width: `${pct}%` as any }]} />
+      </View>
+      <View style={teaserStyles.row}>
+        {recentUnlocked.length > 0 ? (
+          <>
+            <View style={teaserStyles.icons}>
+              {recentUnlocked.map(a => {
+                const c = RARITY_COLORS[a.rarity];
+                return (
+                  <View key={a.id} style={[teaserStyles.badge, { backgroundColor: c.bg, borderColor: c.border }]}>
+                    <Text style={{ fontSize: 16 }}>{a.icon}</Text>
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={teaserStyles.sub}>
+              Latest: {recentUnlocked[0].title}
+            </Text>
+          </>
+        ) : (
+          <Text style={teaserStyles.sub}>Log a transaction to earn your first achievement</Text>
+        )}
+        <Text style={teaserStyles.arrow}>›</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const teaserStyles = StyleSheet.create({
+  card:   { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, backgroundColor: '#1a1a2e', borderRadius: Radius.xl, padding: Spacing.lg },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+  title:  { fontSize: 14, fontWeight: FontWeight.bold, color: '#fff' },
+  count:  { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: FontWeight.semibold },
+  track:  { height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: Radius.full, overflow: 'hidden', marginBottom: Spacing.md },
+  fill:   { height: '100%', borderRadius: Radius.full, backgroundColor: '#a78bfa' },
+  row:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  icons:  { flexDirection: 'row', gap: 4 },
+  badge:  { width: 30, height: 30, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  sub:    { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.5)' },
+  arrow:  { fontSize: 20, color: 'rgba(255,255,255,0.4)' },
+});
 
 const styles = StyleSheet.create({
   safe:        { flex: 1, backgroundColor: PALETTE.bg },
