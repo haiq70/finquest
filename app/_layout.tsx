@@ -1,11 +1,17 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '../src/theme';
 import { AchievementQueue } from '../src/components/AchievementToast';
+import { initSounds } from '../src/utils/sound';
 
 export default function RootLayout() {
+  useEffect(() => {
+    initSounds();
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style="dark" />

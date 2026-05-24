@@ -17,6 +17,12 @@ export const COINS_STREAK_MILESTONE = 50;  // extra at streak milestones (3,7,30
 export const COINS_GOAL_COMPLETED   = 100; // completing a goal
 export const COINS_LEVEL_UP         = 75;  // leveling up
 
+// Anti-exploit: only the first N transactions each day earn coins.
+// Beyond this, transactions still log normally (XP, streaks, achievements
+// all unaffected) but grant zero coins — so users can't farm currency by
+// spamming tiny entries.
+export const DAILY_COIN_TX_CAP = 3;
+
 export interface CoinAward {
   amount: number;
   reason: string;  // short label for toast
@@ -71,4 +77,20 @@ export function coinsForGoalContrib(
   const total = Math.round(base * multiplier);
   const reason = justCompleted ? `+${total} FC · goal complete!` : `+${total} FC`;
   return { amount: total, reason };
+}
+
+// ── Achievement coin rewards ────────────────────────────────────────
+// Earning an achievement grants a one-time coin payout scaled by rarity.
+// These are NOT subject to the daily transaction cap or coin boosts —
+// they're milestone rewards, earned once each, so they can't be farmed.
+export const ACHIEVEMENT_COIN_REWARD: Record<string, number> = {
+  common:    50,
+  rare:      150,
+  epic:      350,
+  legendary: 750,
+};
+
+export function coinsForAchievement(rarity: string): CoinAward {
+  const amount = ACHIEVEMENT_COIN_REWARD[rarity] ?? ACHIEVEMENT_COIN_REWARD.common;
+  return { amount, reason: `+${amount} FC · achievement!` };
 }

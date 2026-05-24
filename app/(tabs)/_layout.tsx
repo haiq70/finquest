@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { Colors, FontWeight } from '../../src/theme';
+import { HapticTab } from '../../components/haptic-tab';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -38,6 +39,7 @@ export default function TabLayout() {
           paddingBottom: Platform.OS === 'ios' ? 24 : 8,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: FontWeight.semibold },
+        tabBarButton: HapticTab,
       }}
     >
       <Tabs.Screen
@@ -77,14 +79,11 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Leaderboard hidden — no backend/social layer yet, so it serves
+          no function. File kept so we can re-enable later via href. */}
       <Tabs.Screen
         name="rank"
-        options={{
-          title: 'Leaderboard',
-          tabBarIcon: ({ focused, size }) => (
-            <TabIcon name="trophy" focused={focused} size={size} />
-          ),
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="achievements"

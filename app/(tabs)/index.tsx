@@ -21,7 +21,8 @@ import AddTransactionModal from '../../src/components/AddTransactionModal';
 import { ACHIEVEMENTS, RARITY_COLORS } from '../../src/kasumi/achievements';
 import { KasumiCard } from '../../src/kasumi/KasumiCard';
 import { KasumiDialogueModal } from '../../src/kasumi/KasumiDialogueModal';
-import { MULTIPLIER_STREAK_GATE } from '../../src/kasumi/xp';
+import { MULTIPLIER_STREAK_GATE, streakMultiplier } from '../../src/kasumi/xp';
+import { playTap } from '../../src/utils/sound';
 import { useStore } from '../../src/store/useStore';
 import { FontWeight, Radius, Spacing, XP_PER_LEVEL } from '../../src/theme';
 import { fmtCurrency, getGreeting } from '../../src/utils/format';
@@ -67,7 +68,7 @@ export default function HomeScreen() {
   const { income, expenses, balance } = getTotals();
   const level     = getLevel();
   const xpInLevel = getXpInLevel();
-  const recent    = transactions.slice(0, 6);
+  const recent    = transactions.slice(0, 4);
   const isNetNeg  = expenses > 0 && expenses > income;
 
   // ── XP-award toast ───────────────────────────────────────────
@@ -118,7 +119,9 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>{getGreeting()} <Text>👋</Text></Text>
             <Text style={styles.subheading}>
               Level {level} Saver
-              {streak > 0 ? ` · ${streak} day streak 🔥` : ' · Start your streak!'}
+              {streak > 0
+                ? ` · ${streak} day streak 🔥${streakMultiplier(streak) > 1 ? ` (${streakMultiplier(streak).toFixed(2).replace(/\.?0+$/, '')}× rewards)` : ''}`
+                : ' · Start your streak!'}
             </Text>
           </View>
           <View style={styles.avatar}>
@@ -127,7 +130,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Kasumi card */}
-        <KasumiCard onOpenDialogue={() => setKasumiOpen(true)} />
+        <KasumiCard onOpenDialogue={() => { playTap(); setKasumiOpen(true); }} />
 
         {/* Balance hero — recolored to fit palette */}
         <View style={styles.hero}>
@@ -211,7 +214,14 @@ export default function HomeScreen() {
         <AchievementsTeaser unlockedIds={unlockedIds} />
 
         {/* Recent transactions */}
-        <SectionTitle style={{ marginTop: Spacing.sm }}>Recent  ✦</SectionTitle>
+        <View style={styles.recentHeader}>
+          <SectionTitle style={{ marginTop: Spacing.sm }}>Recent  ✦</SectionTitle>
+          {transactions.length > 4 && (
+            <TouchableOpacity onPress={() => router.push('/transactions')} style={styles.seeAllBtn}>
+              <Text style={styles.seeAllText}>See all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         {recent.length === 0 ? (
           <EmptyState
             icon="💸"
@@ -238,7 +248,7 @@ export default function HomeScreen() {
       )}
 
       {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.fab} onPress={() => { playTap(); setModalVisible(true); }} activeOpacity={0.85}>
         <Text style={styles.fabIcon}>＋</Text>
       </TouchableOpacity>
 
@@ -396,6 +406,9 @@ const styles = StyleSheet.create({
 
   goalsRow:    { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
   txList:      { paddingHorizontal: Spacing.lg },
+  recentHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: Spacing.lg },
+  seeAllBtn:   { marginTop: Spacing.sm, paddingVertical: 4, paddingHorizontal: 8 },
+  seeAllText:  { fontSize: 12, fontWeight: FontWeight.bold, color: PALETTE.pink },
 
   // XP toast
   toast: {
