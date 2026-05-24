@@ -37,6 +37,32 @@ export interface XpAward {
   tierLabel: string;     // for UI/feedback
 }
 
+// ── Streak reward multiplier ─────────────────────────────────────────
+// The longer the player's *activity* streak, the bigger the bonus on
+// both XP and coins. Grows +STREAK_BONUS_PER_DAY each consecutive day,
+// capped at STREAK_BONUS_MAX. Because it reads the live streak value,
+// it automatically falls back to the day-1 rate the moment a streak
+// breaks (streak resets to 1 → multiplier resets to the floor).
+export const STREAK_BONUS_PER_DAY = 0.05;  // +5% per streak day
+export const STREAK_BONUS_MAX     = 1.0;   // cap the bonus at +100% (i.e. 2× total)
+
+/**
+ * Returns the streak reward multiplier (>= 1.0).
+ * Day 1 → 1.0×, day 2 → 1.05×, … capped at 2.0×.
+ */
+export function streakMultiplier(streak: number): number {
+  const days = Math.max(0, streak - 1); // first day is the baseline (no bonus yet)
+  const bonus = Math.min(STREAK_BONUS_MAX, days * STREAK_BONUS_PER_DAY);
+  return 1 + bonus;
+}
+
+/** Human-readable label e.g. "1.25× streak" — only when above 1×. */
+export function streakMultiplierLabel(streak: number): string | null {
+  const m = streakMultiplier(streak);
+  if (m <= 1) return null;
+  return `${m.toFixed(2).replace(/\.?0+$/, '')}× streak`;
+}
+
 /**
  * Calculate XP for a saving action (income or goal contribution).
  *

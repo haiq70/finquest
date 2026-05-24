@@ -6,6 +6,7 @@ import {
 import { Colors, Spacing, Radius, FontWeight, EXPENSE_CATEGORIES, INCOME_CATEGORIES, type Category } from '../theme';
 import { useStore, type TxType } from '../store/useStore';
 import { PrimaryButton } from './index';
+import { playTap } from '../utils/sound';
 
 interface Props {
   visible: boolean;
@@ -49,6 +50,7 @@ export default function AddTransactionModal({ visible, onClose }: Props) {
       return;
     }
     addTransaction({ type: txType, amount: parsed, description: description.trim(), category });
+    playTap();
     onClose();
   }, [amount, description, txType, category, addTransaction, onClose]);
 

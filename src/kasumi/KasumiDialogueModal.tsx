@@ -4,6 +4,7 @@ import {
   SafeAreaView, Dimensions,
 } from 'react-native';
 import { useStore } from '../store/useStore';
+import { playTap } from '../utils/sound';
 import { FontWeight, Radius, Spacing } from '../theme';
 import {
   pickLine,
@@ -107,6 +108,7 @@ export function KasumiDialogueModal({
 
   function advance() {
     if (atEnd) return;
+    playTap();
     setIdx(i => i + 1);
   }
 
@@ -201,7 +203,7 @@ export function KasumiDialogueModal({
                 {choices.map((c, i) => (
                   <Pressable
                     key={i}
-                    onPress={c.onPress}
+                    onPress={() => { playTap(); c.onPress(); }}
                     style={({ pressed }) => [
                       styles.choice,
                       i === 0 && (netNeg ? styles.choicePrimaryConcerned : styles.choicePrimary),

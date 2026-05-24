@@ -32,6 +32,7 @@ import {
   BASE_XP_GOAL_CONTRIB,
   BASE_XP_INCOME,
   calcSavingXp,
+  streakMultiplier,
   type XpAward,
 } from '../kasumi/xp';
 import {
@@ -47,6 +48,8 @@ import {
 import {
   coinsForTransaction,
   coinsForGoalContrib,
+  coinsForAchievement,
+  DAILY_COIN_TX_CAP,
 } from '../shop/coins';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -137,6 +140,9 @@ interface StoreState {
   streakFreezes: number;
   // Pending coin award for toast feedback (similar to lastXpAward)
   lastCoinAward: { amount: number; reason: string } | null;
+  // Daily coin-earning cap tracking (anti-exploit)
+  coinTxDate: string | null;   // date the count applies to (todayString)
+  coinTxCount: number;         // coin-earning transactions logged that date
 
   // Actions
   clearPendingAchievements: () => void;
@@ -238,12 +244,19 @@ export const useStore = create<StoreState>()(
         };
         const newOnes = checkNewAchievements(snap);
         if (newOnes.length === 0) return;
+        // Each newly-unlocked achievement grants a one-time coin reward
+        // scaled by rarity. Summed so multiple unlocks in one action pay out together.
+        const achievementCoins = newOnes.reduce(
+          (sum, a) => sum + coinsForAchievement(a.rarity).amount, 0,
+        );
         set(st => ({
           unlockedAchievementIds: [
             ...st.unlockedAchievementIds,
             ...newOnes.map(a => a.id),
           ],
           pendingAchievements: [...st.pendingAchievements, ...newOnes],
+          coins: st.coins + achievementCoins,
+          totalCoinsEarned: st.totalCoinsEarned + achievementCoins,
         }));
       };
 
@@ -281,6 +294,8 @@ export const useStore = create<StoreState>()(
         activeCoinBoost: null,
         streakFreezes: 0,
         lastCoinAward: null,
+        coinTxDate: null,
+        coinTxCount: 0,
 
         // ── Actions ────────────────────────────────────────────
 
@@ -428,19 +443,22 @@ export const useStore = create<StoreState>()(
             }
           }
 
-          // ── XP award (with active boost) ──────────────────────
+          // ── XP award (with active boost + streak multiplier) ──
+          const streakMult = streakMultiplier(streak);
           let award: XpAward | null = null;
           if (tx.type === 'income') {
             const baseAward = calcSavingXp(BASE_XP_INCOME, tx.amount, savingStreak);
             const boostMult = (state.activeXpBoost && Date.now() < state.activeXpBoost.expiresAt)
               ? state.activeXpBoost.multiplier : 1;
+            const combined = boostMult * streakMult;
+            const streakLabel = streakMult > 1 ? ` + ${streakMult.toFixed(2).replace(/\.?0+$/, '')}× streak` : '';
             award = {
               ...baseAward,
-              amount: Math.round(baseAward.amount * boostMult),
-              multiplier: baseAward.multiplier * boostMult,
-              tierLabel: boostMult > 1
+              amount: Math.round(baseAward.amount * combined),
+              multiplier: baseAward.multiplier * combined,
+              tierLabel: (boostMult > 1
                 ? `${baseAward.tierLabel} + ${boostMult}× boost`
-                : baseAward.tierLabel,
+                : baseAward.tierLabel) + streakLabel,
             };
           }
           const xpDelta = award?.amount ?? 0;
@@ -448,10 +466,15 @@ export const useStore = create<StoreState>()(
           const newLevel = calcLevel(newXp);
           const leveledUp = newLevel > oldLevel;
 
-          // ── Coin award ────────────────────────────────────────
+          // ── Coin award (daily cap + boost + streak multiplier) ─
           const coinBoostActive = !!(state.activeCoinBoost && Date.now() < state.activeCoinBoost.expiresAt);
           const coinBoostMult = coinBoostActive ? state.activeCoinBoost!.multiplier : 0;
-          const coinAward = coinsForTransaction(
+
+          // Reset the daily counter when the date rolls over.
+          const coinTxCountToday = state.coinTxDate === today ? state.coinTxCount : 0;
+          const underCoinCap = coinTxCountToday < DAILY_COIN_TX_CAP;
+
+          let coinAward = coinsForTransaction(
             tx.type,
             isNewStreakDay,
             streakHitMilestone,
@@ -459,6 +482,20 @@ export const useStore = create<StoreState>()(
             coinBoostActive,
             coinBoostMult,
           );
+          // Apply the streak multiplier to coins (same growth as XP).
+          if (streakMult > 1 && coinAward.amount > 0) {
+            const boosted = Math.round(coinAward.amount * streakMult);
+            coinAward = {
+              amount: boosted,
+              reason: `${coinAward.reason} · ${streakMult.toFixed(2).replace(/\.?0+$/, '')}× streak`,
+            };
+          }
+          // Past the cap: transaction still logs (XP, streak, achievements
+          // all unaffected) but earns no coins.
+          if (!underCoinCap) {
+            coinAward = { amount: 0, reason: 'Daily coin limit reached' };
+          }
+          const newCoinTxCount = underCoinCap ? coinTxCountToday + 1 : coinTxCountToday;
 
           set({
             transactions: [newTx, ...state.transactions],
@@ -471,6 +508,8 @@ export const useStore = create<StoreState>()(
             coins: state.coins + coinAward.amount,
             totalCoinsEarned: state.totalCoinsEarned + coinAward.amount,
             lastCoinAward: coinAward,
+            coinTxDate: today,
+            coinTxCount: newCoinTxCount,
             streakFreezes: usedFreeze ? state.streakFreezes - 1 : state.streakFreezes,
           });
 
@@ -540,16 +579,39 @@ export const useStore = create<StoreState>()(
             lastSavingDate = today;
           }
 
-          // XP award with multiplier (streak-gated).
-          const award = calcSavingXp(BASE_XP_GOAL_CONTRIB, amount, savingStreak);
+          // XP award with multiplier (streak-gated) + streak reward multiplier.
+          const goalStreakMult = streakMultiplier(state.streak);
+          const baseGoalAward = calcSavingXp(BASE_XP_GOAL_CONTRIB, amount, savingStreak);
+          const award: XpAward = goalStreakMult > 1
+            ? {
+                ...baseGoalAward,
+                amount: Math.round(baseGoalAward.amount * goalStreakMult),
+                multiplier: baseGoalAward.multiplier * goalStreakMult,
+                tierLabel: `${baseGoalAward.tierLabel} + ${goalStreakMult.toFixed(2).replace(/\.?0+$/, '')}× streak`,
+              }
+            : baseGoalAward;
           const oldLevel = calcLevel(state.xp);
           const newXp = state.xp + award.amount;
           const leveledUp = calcLevel(newXp) > oldLevel;
 
-          // Coin award
+          // Coin award (subject to the same daily anti-exploit cap)
           const coinBoostActive2 = !!(state.activeCoinBoost && Date.now() < state.activeCoinBoost.expiresAt);
           const coinBoostMult2 = coinBoostActive2 ? state.activeCoinBoost!.multiplier : 0;
-          const coinAward2 = coinsForGoalContrib(justCompleted, coinBoostActive2, coinBoostMult2);
+
+          const coinTxCountToday2 = state.coinTxDate === today ? state.coinTxCount : 0;
+          const underCoinCap2 = coinTxCountToday2 < DAILY_COIN_TX_CAP;
+
+          let coinAward2 = coinsForGoalContrib(justCompleted, coinBoostActive2, coinBoostMult2);
+          if (goalStreakMult > 1 && coinAward2.amount > 0) {
+            coinAward2 = {
+              amount: Math.round(coinAward2.amount * goalStreakMult),
+              reason: `${coinAward2.reason} · ${goalStreakMult.toFixed(2).replace(/\.?0+$/, '')}× streak`,
+            };
+          }
+          if (!underCoinCap2) {
+            coinAward2 = { amount: 0, reason: 'Daily coin limit reached' };
+          }
+          const newCoinTxCount2 = underCoinCap2 ? coinTxCountToday2 + 1 : coinTxCountToday2;
 
           set({
             goals: state.goals.map(g =>
@@ -562,6 +624,8 @@ export const useStore = create<StoreState>()(
             coins: state.coins + coinAward2.amount,
             totalCoinsEarned: state.totalCoinsEarned + coinAward2.amount,
             lastCoinAward: coinAward2,
+            coinTxDate: today,
+            coinTxCount: newCoinTxCount2,
           });
 
           // Mood priority: goal-completed > level-up > regular contribution.
@@ -730,6 +794,9 @@ export const useStore = create<StoreState>()(
         activeXpBoost: state.activeXpBoost,
         activeCoinBoost: state.activeCoinBoost,
         streakFreezes: state.streakFreezes,
+        // Daily coin-cap persistence (so the limit can't be reset by relaunching)
+        coinTxDate: state.coinTxDate,
+        coinTxCount: state.coinTxCount,
       }),
     }
   )

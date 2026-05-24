@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
+import { playTap } from '../../src/utils/sound';
 import {
   Alert,
   FlatList,
@@ -127,6 +128,7 @@ export default function ShopScreen() {
             if (!result.success) {
               Alert.alert('Cannot purchase', result.error ?? 'Unknown error.');
             } else {
+              playTap();
               setPreview(null);
             }
           },
@@ -230,7 +232,7 @@ export default function ShopScreen() {
               return (
                 <TouchableOpacity
                   style={[styles.shopCard, { borderColor: rc.border, backgroundColor: rc.bg }]}
-                  onPress={() => setPreview(item)}
+                  onPress={() => { playTap(); setPreview(item); }}
                   activeOpacity={0.8}
                 >
                   <View style={[styles.shopGlow, { backgroundColor: rc.glow }]} />
@@ -526,7 +528,9 @@ const styles = StyleSheet.create({
   shopCard:     { width: '48.5%', borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden',
                   paddingBottom: Spacing.md },
   shopGlow:     { height: 4, width: '100%', marginBottom: Spacing.sm },
-  shopIcon:     { fontSize: 32, textAlign: 'center', marginBottom: 6 },
+  shopIcon:     { fontSize: 40, lineHeight: 48, height: 52, textAlign: 'center',
+                  textAlignVertical: 'center', marginBottom: 6, marginTop: 4,
+                  includeFontPadding: false },
   shopName:     { fontSize: 13, fontWeight: FontWeight.semibold, color: P.text,
                   textAlign: 'center', paddingHorizontal: 8, marginBottom: 2 },
   shopRarity:   { fontSize: 9, fontWeight: FontWeight.bold, textAlign: 'center',
@@ -545,7 +549,7 @@ const styles = StyleSheet.create({
                   marginBottom: Spacing.sm, overflow: 'hidden' },
   invGlow:      { height: 3, width: '100%' },
   invRow:       { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
-  invIcon:      { fontSize: 28, flexShrink: 0 },
+  invIcon:      { fontSize: 28, lineHeight: 34, flexShrink: 0, includeFontPadding: false },
   invInfo:      { flex: 1 },
   invName:      { fontSize: 14, fontWeight: FontWeight.semibold, color: P.text },
   invType:      { fontSize: 11, color: P.accent, fontWeight: FontWeight.medium, marginBottom: 2 },
@@ -599,7 +603,8 @@ const styles = StyleSheet.create({
   modalGlow:    { height: 5, width: '100%' },
   modalHandle:  { width: 36, height: 4, backgroundColor: '#ddd', borderRadius: Radius.full,
                   alignSelf: 'center', marginVertical: Spacing.md },
-  modalIcon:    { fontSize: 52, textAlign: 'center', marginBottom: 8 },
+  modalIcon:    { fontSize: 56, lineHeight: 66, height: 70, textAlign: 'center',
+                  textAlignVertical: 'center', marginBottom: 8, includeFontPadding: false },
   modalName:    { fontSize: 22, fontWeight: FontWeight.bold, textAlign: 'center',
                   paddingHorizontal: 24, marginBottom: Spacing.sm },
   modalMeta:    { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
