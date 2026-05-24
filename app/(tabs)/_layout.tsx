@@ -95,6 +95,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="shop"
+        options={{
+          title: 'Shop',
+          tabBarIcon: ({ focused, size }) => (
+            <TabIcon name="storefront" focused={focused} size={size} />
+          ),
+        }}
+      />
       {/* Hide the default Expo boilerplate tab */}
       <Tabs.Screen
         name="explore"

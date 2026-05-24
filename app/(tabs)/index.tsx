@@ -54,6 +54,11 @@ export default function HomeScreen() {
   const goals             = useStore(s => s.goals);
   const lastXpAward       = useStore(s => s.lastXpAward);
   const unlockedIds       = useStore(s => s.unlockedAchievementIds);
+  const coins             = useStore(s => s.coins);
+  const activeXpBoost     = useStore(s => s.activeXpBoost);
+  const activeCoinBoost   = useStore(s => s.activeCoinBoost);
+  const lastCoinAward     = useStore(s => s.lastCoinAward);
+  const clearLastCoinAward= useStore(s => s.clearLastCoinAward);
   const getTotals         = useStore(s => s.getTotals);
   const getLevel          = useStore(s => s.getLevel);
   const getXpInLevel      = useStore(s => s.getXpInLevel);
@@ -127,11 +132,34 @@ export default function HomeScreen() {
         {/* Balance hero — recolored to fit palette */}
         <View style={styles.hero}>
           <View style={styles.heroBgGlow} pointerEvents="none" />
-          <Text style={styles.heroLabel}>NET BALANCE  ✦</Text>
+          <View style={styles.heroTopRow}>
+            <Text style={styles.heroLabel}>NET BALANCE  ✦</Text>
+            <TouchableOpacity
+              style={styles.coinPill}
+              onPress={() => router.push('/shop')}
+            >
+              <Text style={styles.coinPillText}>🪙 {coins.toLocaleString()} FC</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={[styles.heroBalance, isNetNeg && { color: '#fda4af' }]}>
             {fmtCurrency(balance)}
           </Text>
           <Text style={styles.heroUpdated}>Updated just now</Text>
+          {/* Active boost indicator */}
+          {(activeXpBoost && Date.now() < activeXpBoost.expiresAt) && (
+            <View style={styles.heroBoostBadge}>
+              <Text style={styles.heroBoostText}>
+                ⚡ {activeXpBoost.multiplier}× XP active
+              </Text>
+            </View>
+          )}
+          {(activeCoinBoost && Date.now() < activeCoinBoost.expiresAt) && (
+            <View style={styles.heroBoostBadge}>
+              <Text style={styles.heroBoostText}>
+                🧲 +{Math.round(activeCoinBoost.multiplier * 100)}% coins active
+              </Text>
+            </View>
+          )}
           <View style={styles.heroDivider} />
           <View style={styles.heroStats}>
             <View>
@@ -333,7 +361,14 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.pink,
     opacity: 0.18,
   },
-  heroLabel:   { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 6, fontWeight: FontWeight.semibold },
+  heroTopRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  heroLabel:   { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, fontWeight: FontWeight.semibold },
+  coinPill:    { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)',
+                 borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  coinPillText:{ fontSize: 12, color: '#fef3c7', fontWeight: FontWeight.bold },
+  heroBoostBadge:{ marginTop: 6, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: Radius.full,
+                   paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
+  heroBoostText: { fontSize: 11, color: '#fef3c7', fontWeight: FontWeight.semibold },
   heroBalance: { fontSize: 42, fontWeight: FontWeight.bold, color: '#fff', letterSpacing: -1.5 },
   heroUpdated: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
   heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginVertical: Spacing.lg },

@@ -39,6 +39,15 @@ import {
   type AchievementDef,
   type AchievementSnapshot,
 } from '../kasumi/achievements';
+import {
+  SHOP_ITEM_MAP,
+  type ShopItem,
+  type AvatarSlot,
+} from '../shop/shopCatalogue';
+import {
+  coinsForTransaction,
+  coinsForGoalContrib,
+} from '../shop/coins';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -114,9 +123,31 @@ interface StoreState {
   unlockedAchievementIds: string[];
   pendingAchievements: AchievementDef[];
 
+  // ── Shop & Currency ───────────────────────────────────────────
+  coins: number;                           // current FC balance
+  totalCoinsEarned: number;                // lifetime total (for stats)
+  // Owned items: itemId → quantity (consumables) or 1 (accessories)
+  ownedItems: Record<string, number>;
+  // Equipped accessories per slot
+  equippedItems: Partial<Record<AvatarSlot, string>>;
+  // Active timed effects
+  activeXpBoost: { multiplier: number; expiresAt: number } | null;
+  activeCoinBoost: { multiplier: number; expiresAt: number } | null;
+  // Streak-freeze count (separate from ownedItems for quick access)
+  streakFreezes: number;
+  // Pending coin award for toast feedback (similar to lastXpAward)
+  lastCoinAward: { amount: number; reason: string } | null;
+
   // Actions
   clearPendingAchievements: () => void;
-  shiftPendingAchievement: () => void; // remove first, keep rest
+  shiftPendingAchievement: () => void;
+  // Shop actions
+  purchaseItem: (itemId: string) => { success: boolean; error?: string };
+  equipItem: (itemId: string) => void;
+  unequipSlot: (slot: AvatarSlot) => void;
+  activateItem: (itemId: string) => void;   // activates consumables from inventory
+  tickBoosts: () => void;                   // expire timed boosts
+  clearLastCoinAward: () => void;
   addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => void;
   deleteTransaction: (id: string) => void;
   addGoal: (goal: Omit<Goal, 'id'>) => void;
@@ -241,6 +272,16 @@ export const useStore = create<StoreState>()(
         unlockedAchievementIds: [],
         pendingAchievements: [],
 
+        // Shop & currency defaults
+        coins: 0,
+        totalCoinsEarned: 0,
+        ownedItems: {},
+        equippedItems: {},
+        activeXpBoost: null,
+        activeCoinBoost: null,
+        streakFreezes: 0,
+        lastCoinAward: null,
+
         // ── Actions ────────────────────────────────────────────
 
         clearPendingAchievements() {
@@ -249,6 +290,96 @@ export const useStore = create<StoreState>()(
 
         shiftPendingAchievement() {
           set(st => ({ pendingAchievements: st.pendingAchievements.slice(1) }));
+        },
+
+        // ── Shop actions ───────────────────────────────────────
+
+        purchaseItem(itemId) {
+          const item = SHOP_ITEM_MAP[itemId];
+          if (!item) return { success: false, error: 'Item not found.' };
+          const s = get();
+          if (s.coins < item.price) return { success: false, error: 'Not enough coins.' };
+          // Check max-owned limit
+          const currentQty = s.ownedItems[itemId] ?? 0;
+          if (item.maxOwned !== undefined && currentQty >= item.maxOwned) {
+            return { success: false, error: `You can hold at most ${item.maxOwned} of this item.` };
+          }
+          // Streak freeze special handling — track separately for easy access
+          const freezeAdd = item.type === 'streak_freeze' ? (item.uses ?? 1) : 0;
+          // Cap total freezes at 2 (Duolingo rule)
+          if (item.type === 'streak_freeze') {
+            const newTotal = s.streakFreezes + freezeAdd;
+            if (newTotal > 2) return { success: false, error: 'You can hold at most 2 streak freezes.' };
+          }
+          set(st => ({
+            coins: st.coins - item.price,
+            ownedItems: {
+              ...st.ownedItems,
+              [itemId]: (st.ownedItems[itemId] ?? 0) + (item.uses ?? 1),
+            },
+            streakFreezes: item.type === 'streak_freeze'
+              ? Math.min(2, st.streakFreezes + freezeAdd)
+              : st.streakFreezes,
+          }));
+          return { success: true };
+        },
+
+        equipItem(itemId) {
+          const item = SHOP_ITEM_MAP[itemId];
+          if (!item || item.type !== 'avatar_accessory' || !item.slot) return;
+          const owned = get().ownedItems[itemId] ?? 0;
+          if (owned <= 0) return;
+          set(st => ({
+            equippedItems: { ...st.equippedItems, [item.slot!]: itemId },
+          }));
+        },
+
+        unequipSlot(slot) {
+          set(st => {
+            const next = { ...st.equippedItems };
+            delete next[slot];
+            return { equippedItems: next };
+          });
+        },
+
+        activateItem(itemId) {
+          const item = SHOP_ITEM_MAP[itemId];
+          if (!item) return;
+          const s = get();
+          const owned = s.ownedItems[itemId] ?? 0;
+          if (owned <= 0) return;
+          const now = Date.now();
+          const newOwned = { ...s.ownedItems, [itemId]: owned - 1 };
+          if (item.type === 'xp_booster' && item.durationHours && item.xpMultiplier) {
+            set({
+              ownedItems: newOwned,
+              activeXpBoost: {
+                multiplier: item.xpMultiplier,
+                expiresAt: now + item.durationHours * 3600 * 1000,
+              },
+            });
+          } else if (item.type === 'coin_magnet' && item.durationHours && item.coinBonus) {
+            set({
+              ownedItems: newOwned,
+              activeCoinBoost: {
+                multiplier: item.coinBonus,
+                expiresAt: now + item.durationHours * 3600 * 1000,
+              },
+            });
+          }
+        },
+
+        tickBoosts() {
+          const now = Date.now();
+          const s = get();
+          const updates: Partial<typeof s> = {};
+          if (s.activeXpBoost && now >= s.activeXpBoost.expiresAt) updates.activeXpBoost = null;
+          if (s.activeCoinBoost && now >= s.activeCoinBoost.expiresAt) updates.activeCoinBoost = null;
+          if (Object.keys(updates).length) set(updates);
+        },
+
+        clearLastCoinAward() {
+          set({ lastCoinAward: null });
         },
 
         addTransaction(tx) {
@@ -264,21 +395,28 @@ export const useStore = create<StoreState>()(
           let { streak, lastLogDate, savingStreak, lastSavingDate } = state;
           let streakBroke = false;
           let streakHitMilestone = false;
+          let usedFreeze = false;
           const oldLevel = calcLevel(state.xp);
+          const isNewStreakDay = lastLogDate !== today;
 
           // ── Activity streak (any transaction) ─────────────────
           if (lastLogDate !== today) {
             if (lastLogDate === yesterday || lastLogDate === null) {
               streak = lastLogDate === yesterday ? streak + 1 : 1;
             } else {
-              streakBroke = lastLogDate !== null;
-              streak = 1;
+              // Missed at least one day — try to spend a streak freeze
+              if (state.streakFreezes > 0) {
+                usedFreeze = true;
+                streak = streak; // streak preserved
+              } else {
+                streakBroke = lastLogDate !== null;
+                streak = 1;
+              }
             }
           }
           if (STREAK_MILESTONES.includes(streak)) streakHitMilestone = true;
 
           // ── Saving streak (income only — expenses don't count) ─
-          // Updated BEFORE XP calc so today's saving counts toward today's gate.
           if (tx.type === 'income') {
             if (lastSavingDate !== today) {
               if (lastSavingDate === yesterday || lastSavingDate === null) {
@@ -290,16 +428,37 @@ export const useStore = create<StoreState>()(
             }
           }
 
-          // ── XP award ─────────────────────────────────────────
-          // Expenses earn nothing. Income earns base × multiplier (streak-gated).
+          // ── XP award (with active boost) ──────────────────────
           let award: XpAward | null = null;
           if (tx.type === 'income') {
-            award = calcSavingXp(BASE_XP_INCOME, tx.amount, savingStreak);
+            const baseAward = calcSavingXp(BASE_XP_INCOME, tx.amount, savingStreak);
+            const boostMult = (state.activeXpBoost && Date.now() < state.activeXpBoost.expiresAt)
+              ? state.activeXpBoost.multiplier : 1;
+            award = {
+              ...baseAward,
+              amount: Math.round(baseAward.amount * boostMult),
+              multiplier: baseAward.multiplier * boostMult,
+              tierLabel: boostMult > 1
+                ? `${baseAward.tierLabel} + ${boostMult}× boost`
+                : baseAward.tierLabel,
+            };
           }
           const xpDelta = award?.amount ?? 0;
           const newXp = state.xp + xpDelta;
           const newLevel = calcLevel(newXp);
           const leveledUp = newLevel > oldLevel;
+
+          // ── Coin award ────────────────────────────────────────
+          const coinBoostActive = !!(state.activeCoinBoost && Date.now() < state.activeCoinBoost.expiresAt);
+          const coinBoostMult = coinBoostActive ? state.activeCoinBoost!.multiplier : 0;
+          const coinAward = coinsForTransaction(
+            tx.type,
+            isNewStreakDay,
+            streakHitMilestone,
+            leveledUp,
+            coinBoostActive,
+            coinBoostMult,
+          );
 
           set({
             transactions: [newTx, ...state.transactions],
@@ -309,10 +468,23 @@ export const useStore = create<StoreState>()(
             savingStreak,
             lastSavingDate,
             lastXpAward: award,
+            coins: state.coins + coinAward.amount,
+            totalCoinsEarned: state.totalCoinsEarned + coinAward.amount,
+            lastCoinAward: coinAward,
+            streakFreezes: usedFreeze ? state.streakFreezes - 1 : state.streakFreezes,
           });
 
           // ── Kasumi mood reaction ─────────────────────────────
-          // Priority: streak-broken > level-up > streak-milestone > the tx itself
+          if (usedFreeze) {
+            // Treat like a normal day — no streak broken reaction
+            applyMoodEvent(
+              tx.type === 'income'
+                ? moodEventForIncome(tx.amount)
+                : moodEventForExpense(tx.amount)
+            );
+            checkAndQueueAchievements();
+            return;
+          }
           if (streakBroke) { applyMoodEvent(MOOD_EVENT_STREAK_BROKEN); checkAndQueueAchievements(); return; }
           if (leveledUp) { applyMoodEvent(MOOD_EVENT_LEVEL_UP); checkAndQueueAchievements(); return; }
           if (streakHitMilestone) { applyMoodEvent(MOOD_EVENT_STREAK_MILESTONE); checkAndQueueAchievements(); return; }
@@ -374,6 +546,11 @@ export const useStore = create<StoreState>()(
           const newXp = state.xp + award.amount;
           const leveledUp = calcLevel(newXp) > oldLevel;
 
+          // Coin award
+          const coinBoostActive2 = !!(state.activeCoinBoost && Date.now() < state.activeCoinBoost.expiresAt);
+          const coinBoostMult2 = coinBoostActive2 ? state.activeCoinBoost!.multiplier : 0;
+          const coinAward2 = coinsForGoalContrib(justCompleted, coinBoostActive2, coinBoostMult2);
+
           set({
             goals: state.goals.map(g =>
               g.id === goalId ? { ...g, saved: newSaved } : g
@@ -382,6 +559,9 @@ export const useStore = create<StoreState>()(
             savingStreak,
             lastSavingDate,
             lastXpAward: award,
+            coins: state.coins + coinAward2.amount,
+            totalCoinsEarned: state.totalCoinsEarned + coinAward2.amount,
+            lastCoinAward: coinAward2,
           });
 
           // Mood priority: goal-completed > level-up > regular contribution.
@@ -542,6 +722,14 @@ export const useStore = create<StoreState>()(
         lastTierKey: state.lastTierKey,
         // Achievement persistence
         unlockedAchievementIds: state.unlockedAchievementIds,
+        // Shop & currency persistence
+        coins: state.coins,
+        totalCoinsEarned: state.totalCoinsEarned,
+        ownedItems: state.ownedItems,
+        equippedItems: state.equippedItems,
+        activeXpBoost: state.activeXpBoost,
+        activeCoinBoost: state.activeCoinBoost,
+        streakFreezes: state.streakFreezes,
       }),
     }
   )
