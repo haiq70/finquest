@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { Image, Platform } from 'react-native';
 import { Colors, FontWeight } from '../../src/theme';
 import { HapticTab } from '../../components/haptic-tab';
 
@@ -46,7 +46,14 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          headerTitle: 'FinQuest',
+          headerTitle: () => (
+            <Image
+              source={require('../../assets/images/ui/finquest-logo.png')}
+              style={{ width: 150, height: 39 }}
+              resizeMode="contain"
+            />
+          ),
+          headerTitleAlign: 'center',
           tabBarIcon: ({ focused, size }) => (
             <TabIcon name="home" focused={focused} size={size} />
           ),

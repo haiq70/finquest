@@ -2,8 +2,8 @@
 ### Design
 - [X] Change the UI design to make it look more customised.
 - [x] Declutter the main screen -- decrease the number of tabs visible at once, maybe hide them under some menu.
-- [ ] Refine in-app sound effects.
-
+- [x] Refine in-app sound effects.
+- [ ] Elaborate on the avatar system.
 
 ### Achievements + Progression
 - [x] Set up an achievement system.

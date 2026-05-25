@@ -6,11 +6,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '../src/theme';
 import { AchievementQueue } from '../src/components/AchievementToast';
 import { initSounds } from '../src/utils/sound';
+import { useSoundSettings } from '../src/store/useSoundSettings';
 
 export default function RootLayout() {
+  const applyToEngine = useSoundSettings(s => s.applyToEngine);
+
   useEffect(() => {
     initSounds();
-  }, []);
+    // Push persisted prefs into the audio engine and start music if enabled.
+    // Slight delay lets the persisted store rehydrate first.
+    const t = setTimeout(() => applyToEngine(), 350);
+    return () => clearTimeout(t);
+  }, [applyToEngine]);
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -18,6 +25,7 @@ export default function RootLayout() {
       <View style={styles.root}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
         </Stack>
         {/* Global achievement toast overlay — renders above all screens */}
         <AchievementQueue />

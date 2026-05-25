@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -124,9 +125,16 @@ export default function HomeScreen() {
                 : ' · Start your streak!'}
             </Text>
           </View>
-          <View style={styles.avatar}>
+          <TouchableOpacity
+            style={styles.avatar}
+            onPress={() => { playTap(); router.push('/settings'); }}
+            activeOpacity={0.8}
+          >
             <Text style={styles.avatarText}>ME</Text>
-          </View>
+            <View style={styles.avatarGear}>
+              <Ionicons name="settings-sharp" size={12} color={PALETTE.accentDeep} />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Kasumi card */}
@@ -349,6 +357,7 @@ const styles = StyleSheet.create({
   subheading:  { fontSize: 13, color: PALETTE.textSecondary, marginTop: 2 },
   avatar:      { width: 42, height: 42, borderRadius: 21, backgroundColor: PALETTE.accentDeep, alignItems: 'center', justifyContent: 'center', shadowColor: PALETTE.accentDeep, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
   avatarText:  { color: '#fff', fontSize: 13, fontWeight: FontWeight.bold },
+  avatarGear:  { position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: PALETTE.cardBorder },
 
   hero: {
     marginHorizontal: Spacing.lg,
