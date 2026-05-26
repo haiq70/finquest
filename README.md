@@ -1,9 +1,9 @@
 # TODO List
 ### Design
 - [X] Change the UI design to make it look more customised.
-- [x] Declutter the main screen -- decrease the number of tabs visible at once, maybe hide them under some menu.
+- [x] Declutter the main screen: decrease the number of tabs visible at once, maybe hide them under some menu.
 - [x] Refine in-app sound effects.
-- [ ] Elaborate on the avatar system.
+- [ ] Elaborate on the avatar system: create more assets and ensure that the shop customisation options change the appearance appropriately.  
 
 ### Achievements + Progression
 - [x] Set up an achievement system.
