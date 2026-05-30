@@ -294,14 +294,14 @@ const styles = StyleSheet.create({
   portraitGlow: {
     position: 'absolute',
     width: Math.min(SCREEN_W * 0.9, 380),
-    aspectRatio: 3 / 4,
+    height: Math.min(SCREEN_W * 0.9, 380) * 4 / 3,
     borderRadius: 30,
     backgroundColor: PALETTE.accent + '25',
     transform: [{ scale: 1.04 }],
   },
   portraitFrame: {
     width: Math.min(SCREEN_W * 0.85, 360),
-    aspectRatio: 3 / 4,
+    height: Math.min(SCREEN_W * 0.85, 360) * 4 / 3,
     borderRadius: 26,
     borderWidth: 4,
     padding: 0,
