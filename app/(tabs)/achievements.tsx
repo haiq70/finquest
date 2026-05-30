@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useStore } from '../../src/store/useStore';
+import { ScreenBackground } from '../../src/components/Glass';
 import {
   ACHIEVEMENTS,
   RARITY_COLORS,
@@ -60,6 +61,7 @@ export default function AchievementsScreen() {
   const pct           = Math.round((totalUnlocked / totalCount) * 100);
 
   return (
+    <ScreenBackground>
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
@@ -178,11 +180,12 @@ export default function AchievementsScreen() {
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:         { flex: 1, backgroundColor: Colors.background },
+  safe:         { flex: 1, backgroundColor: 'transparent' },
   scroll:       { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
 
   summaryCard:  { backgroundColor: Colors.dark, borderRadius: Radius.xl, padding: Spacing.xl, marginBottom: Spacing.lg },
@@ -197,7 +200,7 @@ const styles = StyleSheet.create({
   tierName:     { fontWeight: FontWeight.semibold },
 
   filterRow:    { gap: Spacing.sm, paddingBottom: Spacing.md },
-  pill:         { paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full, backgroundColor: Colors.surface, borderWidth: 0.5, borderColor: Colors.border },
+  pill:         { paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full, backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
   pillActive:   { backgroundColor: Colors.dark, borderColor: Colors.dark },
   pillText:     { fontSize: 13, color: Colors.textSecondary, fontWeight: FontWeight.medium },
   pillTextActive:{ color: '#fff' },

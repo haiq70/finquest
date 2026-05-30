@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -20,6 +21,7 @@ import {
   type ShopItemType,
 } from '../../src/shop/shopCatalogue';
 import { useStore } from '../../src/store/useStore';
+import { ScreenBackground } from '../../src/components/Glass';
 import { Colors, FontWeight, Radius, Spacing } from '../../src/theme';
 
 // ── Palette ───────────────────────────────────────────────────────────
@@ -116,7 +118,10 @@ function PreviewModal({ item, coins, ownedItems, onClose, onBuy }: PreviewModalP
         {atMax && <Text style={s.maxNote}>You already hold the maximum.</Text>}
         <View style={s.modalFooter}>
           <View>
-            <Text style={s.modalPrice}>🪙 {item.price.toLocaleString()} FC</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Image source={require('../../assets/images/ui/coin.png')} style={s.coinIconImg} />
+            <Text style={s.modalPrice}>{item.price.toLocaleString()} FC</Text>
+          </View>
             {!canAfford && (
               <Text style={s.modalShortfall}>
                 Need {(item.price - coins).toLocaleString()} more
@@ -235,6 +240,7 @@ export default function ShopScreen() {
 
   // ── Render ────────────────────────────────────────────────────────
   return (
+    <ScreenBackground>
     <SafeAreaView style={s.safe}>
 
       {/* Header */}
@@ -248,7 +254,7 @@ export default function ShopScreen() {
           )}
         </View>
         <View style={s.coinBadge}>
-          <Text style={s.coinIcon}>🪙</Text>
+          <Image source={require('../../assets/images/ui/coin.png')} style={s.coinIconImg} />
           <Text style={s.coinAmt}>{coins.toLocaleString()} FC</Text>
         </View>
       </View>
@@ -326,9 +332,12 @@ export default function ShopScreen() {
                         {item.rarity.toUpperCase()}
                       </Text>
                       <View style={s.cardFooter}>
-                        <Text style={[s.cardPrice, !canAfford && s.cardPriceRed]}>
-                          🪙 {item.price.toLocaleString()}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Image source={require('../../assets/images/ui/coin.png')} style={s.coinIconSm} />
+                          <Text style={[s.cardPrice, !canAfford && s.cardPriceRed]}>
+                            {item.price.toLocaleString()}
+                          </Text>
+                        </View>
                         {owned > 0 && (
                           <View style={[s.ownedBadge, { backgroundColor: rc.text }]}>
                             <Text style={s.ownedBadgeTxt}>×{owned}</Text>
@@ -489,6 +498,7 @@ export default function ShopScreen() {
         onBuy={handleBuy}
       />
     </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
@@ -496,7 +506,7 @@ export default function ShopScreen() {
 const CARD_GAP = 10;
 
 const s = StyleSheet.create({
-  safe:       { flex: 1, backgroundColor: P.bg },
+  safe:       { flex: 1, backgroundColor: 'transparent' },
 
   // Header
   header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
@@ -510,6 +520,8 @@ const s = StyleSheet.create({
                 borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 8,
                 borderWidth: 1, borderColor: '#fde68a' },
   coinIcon:   { fontSize: 16 },
+  coinIconImg:{ width: 16, height: 16 },
+  coinIconSm: { width: 13, height: 13 },
   coinAmt:    { fontSize: 15, fontWeight: FontWeight.bold, color: P.coinText },
 
   // Freeze row

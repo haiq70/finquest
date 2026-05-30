@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useStore } from '../../src/store/useStore';
 import { StatCard, SectionTitle, CategoryBar, XpBar } from '../../src/components';
+import { ScreenBackground } from '../../src/components/Glass';
 import { Colors, Spacing, Radius, FontWeight, XP_PER_LEVEL, type Category } from '../../src/theme';
 import { fmtCurrency } from '../../src/utils/format';
 
@@ -53,6 +54,7 @@ export default function StatsScreen() {
     : 0;
 
   return (
+    <ScreenBackground>
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
@@ -128,15 +130,16 @@ export default function StatsScreen() {
 
       </ScrollView>
     </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:         { flex: 1, backgroundColor: Colors.background },
+  safe:         { flex: 1, backgroundColor: 'transparent' },
   scroll:       { paddingBottom: 40 },
   topPad:       { height: Spacing.sm },
 
-  xpCard:       { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 0.5, borderColor: Colors.border, paddingTop: Spacing.lg, paddingBottom: Spacing.md },
+  xpCard:       { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: Radius.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', paddingTop: Spacing.lg, paddingBottom: Spacing.md },
   xpRow:        { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
   xpStat:       { flex: 1, alignItems: 'center' },
   xpStatVal:    { fontSize: 18, fontWeight: FontWeight.bold, color: Colors.textPrimary },
@@ -147,11 +150,11 @@ const styles = StyleSheet.create({
   gridRow:      { flexDirection: 'row' },
 
   streakRow:    { flexDirection: 'row', paddingHorizontal: Spacing.lg, gap: Spacing.sm, marginBottom: Spacing.lg },
-  dayDot:       { flex: 1, aspectRatio: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 0.5, borderColor: Colors.border },
+  dayDot:       { flex: 1, aspectRatio: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
   dayDotDone:   { backgroundColor: Colors.dark, borderColor: Colors.dark },
   dayDotToday:  { backgroundColor: Colors.primary, borderColor: Colors.primary },
   dayDotText:   { fontSize: 11, fontWeight: FontWeight.semibold, color: Colors.textSecondary },
 
-  catCard:      { marginHorizontal: Spacing.lg, backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 0.5, borderColor: Colors.border, padding: Spacing.lg, marginBottom: Spacing.lg },
+  catCard:      { marginHorizontal: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: Radius.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', padding: Spacing.lg, marginBottom: Spacing.lg },
   noCats:       { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', paddingVertical: Spacing.lg },
 });
