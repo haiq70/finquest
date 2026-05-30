@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { EmptyState, PrimaryButton, SectionTitle } from '../../src/components';
+import { ScreenBackground } from '../../src/components/Glass';
 import { useStore } from '../../src/store/useStore';
 import { Colors, FontWeight, Radius, Spacing } from '../../src/theme';
 import { fmtCurrency } from '../../src/utils/format';
@@ -67,6 +68,7 @@ export default function GoalsScreen() {
   }, [contribId, contribGoal]);
 
   return (
+    <ScreenBackground>
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={{ height: Spacing.sm }} />
@@ -188,14 +190,15 @@ export default function GoalsScreen() {
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1, backgroundColor: Colors.background },
+  safe:            { flex: 1, backgroundColor: 'transparent' },
   scroll:          { paddingHorizontal: Spacing.lg, paddingBottom: 40 },
 
-  goalCard:        { backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 0.5, borderColor: Colors.border, padding: Spacing.lg, marginBottom: Spacing.sm },
+  goalCard:        { backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: Radius.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', padding: Spacing.lg, marginBottom: Spacing.sm },
   goalHeader:      { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
   goalIconWrap:    { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
   goalInfo:        { flex: 1 },

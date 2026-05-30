@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Animated,
+  Image,
   ImageBackground,
   SafeAreaView,
   ScrollView, StyleSheet,
@@ -19,8 +20,10 @@ import {
   XpBar,
 } from '../../src/components';
 import AddTransactionModal from '../../src/components/AddTransactionModal';
+import { GlassCard, ScreenBackground } from '../../src/components/Glass';
+import { VNBackdrop, VN_BACKDROP_HEIGHT } from '../../src/components/VNBackdrop';
 import { ACHIEVEMENTS, RARITY_COLORS } from '../../src/kasumi/achievements';
-import { KasumiCard } from '../../src/kasumi/KasumiCard';
+import { tierFromAffection, pickLine, type Mood } from '../../src/kasumi/dialogue';
 import { KasumiDialogueModal } from '../../src/kasumi/KasumiDialogueModal';
 import { MULTIPLIER_STREAK_GATE, streakMultiplier } from '../../src/kasumi/xp';
 import { playTap } from '../../src/utils/sound';
@@ -45,6 +48,13 @@ const PALETTE = {
   expense:      '#ef4444',
 };
 
+// Character art for the VN backdrop, keyed by mood.
+const FACES: Record<Mood, any> = {
+  neutral: require('../../assets/images/kasumi/neutral.png'),
+  happy:   require('../../assets/images/kasumi/happy.jpeg'),
+  sad:     require('../../assets/images/kasumi/sad.jpeg'),
+};
+
 export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [kasumiOpen, setKasumiOpen]     = useState(false);
@@ -65,6 +75,17 @@ export default function HomeScreen() {
   const getLevel          = useStore(s => s.getLevel);
   const getXpInLevel      = useStore(s => s.getXpInLevel);
   const deleteTransaction = useStore(s => s.deleteTransaction);
+
+  // ── Kasumi state for the VN backdrop ─────────────────────────
+  const affection      = useStore(s => s.affection);
+  const currentMood    = useStore(s => s.currentMood);
+  const currentLine    = useStore(s => s.currentLine);
+  const hasMet         = useStore(s => s.hasMet);
+  const markMet        = useStore(s => s.markMet);
+  const refreshIdle    = useStore(s => s.refreshIdleLine);
+  const tickMood       = useStore(s => s.tickMood);
+  const isNetNegative  = useStore(s => s.isNetNegative);
+  const kasumiTier     = tierFromAffection(affection);
 
   const { income, expenses, balance } = getTotals();
   const level     = getLevel();
@@ -102,104 +123,119 @@ export default function HomeScreen() {
 
   const multiplierUnlocked = savingStreak >= MULTIPLIER_STREAK_GATE;
 
+  // Greet on first ever open; refresh an idle line if none is set.
+  useEffect(() => {
+    if (!hasMet) {
+      markMet();
+    } else if (!currentLine) {
+      refreshIdle();
+    }
+    tickMood();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const kasumiNetNeg = isNetNegative();
+  const kasumiMood: Mood = kasumiNetNeg ? 'sad' : currentMood;
+  const kasumiLine = kasumiNetNeg
+    ? pickLine('net_negative', kasumiTier.key)
+    : (currentLine || pickLine('idle', kasumiTier.key));
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <ImageBackground
-        source={require('../../assets/images/ui/bg-pattern.png')}
-        style={styles.bgPattern}
-        resizeMode="cover"
+    <ScreenBackground>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollVN}
       >
-      {/* Soft pink corner glow */}
-      <View style={styles.pageGlow} pointerEvents="none" />
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{getGreeting()} <Text>👋</Text></Text>
-            <Text style={styles.subheading}>
-              Level {level} Saver
-              {streak > 0
-                ? ` · ${streak} day streak 🔥${streakMultiplier(streak) > 1 ? ` (${streakMultiplier(streak).toFixed(2).replace(/\.?0+$/, '')}× rewards)` : ''}`
-                : ' · Start your streak!'}
-            </Text>
-          </View>
+        {/* ── Visual-novel character backdrop ── */}
+        <View>
+          <VNBackdrop
+            source={FACES[kasumiMood]}
+            line={kasumiLine}
+            status={`${getGreeting()} · Level ${level}${streak > 0 ? `  ·  ${streak}d 🔥${streakMultiplier(streak) > 1 ? ` ${streakMultiplier(streak).toFixed(2).replace(/\.?0+$/, '')}×` : ''}` : ''}`}
+            badge={kasumiTier.label}
+            badgeColor={kasumiTier.accent}
+          />
+          {/* Settings gear over the top-right of the backdrop */}
           <TouchableOpacity
-            style={styles.avatar}
+            style={styles.vnGear}
             onPress={() => { playTap(); router.push('/settings'); }}
             activeOpacity={0.8}
           >
-            <Text style={styles.avatarText}>ME</Text>
-            <View style={styles.avatarGear}>
-              <Ionicons name="settings-sharp" size={12} color={PALETTE.accentDeep} />
-            </View>
+            <Ionicons name="settings-sharp" size={18} color="#fff" />
+          </TouchableOpacity>
+          {/* Tap-to-talk button, bottom-right over the backdrop */}
+          <TouchableOpacity
+            style={styles.vnTalkBtn}
+            onPress={() => { playTap(); setKasumiOpen(true); }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.vnTalkText}>Talk  ♡</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Kasumi card */}
-        <KasumiCard onOpenDialogue={() => { playTap(); setKasumiOpen(true); }} />
-
-        {/* Balance hero — recolored to fit palette */}
-        <View style={styles.hero}>
-          <View style={styles.heroBgGlow} pointerEvents="none" />
-          <View style={styles.heroTopRow}>
-            <Text style={styles.heroLabel}>NET BALANCE  ✦</Text>
-            <TouchableOpacity
-              style={styles.coinPill}
-              onPress={() => router.push('/shop')}
-            >
-              <Text style={styles.coinPillText}>🪙 {coins.toLocaleString()} FC</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.heroBalance, isNetNeg && { color: '#fda4af' }]}>
-            {fmtCurrency(balance)}
-          </Text>
-          <Text style={styles.heroUpdated}>Updated just now</Text>
-          {/* Active boost indicator */}
-          {(activeXpBoost && Date.now() < activeXpBoost.expiresAt) && (
-            <View style={styles.heroBoostBadge}>
-              <Text style={styles.heroBoostText}>
-                ⚡ {activeXpBoost.multiplier}× XP active
+        {/* ── Panels float over the faded extension of the backdrop ── */}
+        <View style={styles.vnBody}>
+          {/* Balance panel — taps through to transactions */}
+          <TouchableOpacity activeOpacity={0.9} onPress={() => { playTap(); router.push('/transactions'); }}>
+            <GlassCard variant="dark" style={styles.vnBalanceCard}>
+              <View style={styles.heroTopRow}>
+                <Text style={styles.heroLabel}>NET BALANCE  ✦</Text>
+                <TouchableOpacity
+                  style={styles.coinPill}
+                  onPress={() => { playTap(); router.push('/shop'); }}
+                >
+                  <Image source={require('../../assets/images/ui/coin.png')} style={styles.coinPillIcon} />
+                  <Text style={styles.coinPillText}>{coins.toLocaleString()} FC</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.heroBalance, isNetNeg && { color: '#fda4af' }]}>
+                {fmtCurrency(balance)}
               </Text>
-            </View>
-          )}
-          {(activeCoinBoost && Date.now() < activeCoinBoost.expiresAt) && (
-            <View style={styles.heroBoostBadge}>
-              <Text style={styles.heroBoostText}>
-                🧲 +{Math.round(activeCoinBoost.multiplier * 100)}% coins active
-              </Text>
-            </View>
-          )}
-          <View style={styles.heroDivider} />
-          <View style={styles.heroStats}>
-            <View>
-              <Text style={[styles.heroStatVal, { color: '#86efac' }]}>{fmtCurrency(income)}</Text>
-              <Text style={styles.heroStatLabel}>Income</Text>
-            </View>
-            <View style={styles.heroStatSep} />
-            <View>
-              <Text style={[styles.heroStatVal, { color: '#fca5a5' }]}>{fmtCurrency(expenses)}</Text>
-              <Text style={styles.heroStatLabel}>Spent</Text>
-            </View>
-          </View>
-        </View>
+              {(activeXpBoost && Date.now() < activeXpBoost.expiresAt) && (
+                <View style={styles.heroBoostBadge}>
+                  <Text style={styles.heroBoostText}>⚡ {activeXpBoost.multiplier}× XP active</Text>
+                </View>
+              )}
+              {(activeCoinBoost && Date.now() < activeCoinBoost.expiresAt) && (
+                <View style={styles.heroBoostBadge}>
+                  <Text style={styles.heroBoostText}>🧲 +{Math.round(activeCoinBoost.multiplier * 100)}% coins active</Text>
+                </View>
+              )}
+              <View style={styles.heroDivider} />
+              <View style={styles.heroStats}>
+                <View>
+                  <Text style={[styles.heroStatVal, { color: '#86efac' }]}>{fmtCurrency(income)}</Text>
+                  <Text style={styles.heroStatLabel}>Income</Text>
+                </View>
+                <View style={styles.heroStatSep} />
+                <View>
+                  <Text style={[styles.heroStatVal, { color: '#fca5a5' }]}>{fmtCurrency(expenses)}</Text>
+                  <Text style={styles.heroStatLabel}>Spent</Text>
+                </View>
+              </View>
+            </GlassCard>
+          </TouchableOpacity>
 
-        {/* Saving-streak / multiplier banner */}
-        <View style={[styles.streakBanner, multiplierUnlocked && styles.streakBannerActive]}>
-          <Text style={styles.streakIcon}>{multiplierUnlocked ? '✨' : '🔒'}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.streakTitle}>
-              {multiplierUnlocked ? 'XP multipliers unlocked' : 'Save daily to unlock multipliers'}
-            </Text>
-            <Text style={styles.streakSub}>
-              {multiplierUnlocked
-                ? `${savingStreak}-day saving streak · 1.5×/2×/3× on €100/€300/€500+`
-                : `${savingStreak} / ${MULTIPLIER_STREAK_GATE} days saving in a row`}
-            </Text>
-          </View>
-          <View style={[styles.streakDot, multiplierUnlocked && { backgroundColor: PALETTE.pink }]} />
-        </View>
+          {/* Saving-streak / multiplier panel */}
+          <GlassCard
+            variant={multiplierUnlocked ? 'strong' : 'light'}
+            style={styles.streakBannerGlass}
+          >
+            <View style={styles.streakBannerRow}>
+              <Text style={styles.streakIcon}>{multiplierUnlocked ? '✨' : '🔒'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.streakTitle}>
+                  {multiplierUnlocked ? 'XP multipliers unlocked' : 'Save daily to unlock multipliers'}
+                </Text>
+                <Text style={styles.streakSub}>
+                  {multiplierUnlocked
+                    ? `${savingStreak}-day saving streak · 1.5×/2×/3× on €100/€300/€500+`
+                    : `${savingStreak} / ${MULTIPLIER_STREAK_GATE} days saving in a row`}
+                </Text>
+              </View>
+              <View style={[styles.streakDot, multiplierUnlocked && { backgroundColor: PALETTE.pink }]} />
+            </View>
+          </GlassCard>
 
         {/* XP bar */}
         <XpBar xp={xp} level={level} xpInLevel={xpInLevel} xpCap={XP_PER_LEVEL} />
@@ -237,12 +273,15 @@ export default function HomeScreen() {
             sub="Tap + to log your first entry — income earns XP, expenses don't"
           />
         ) : (
-          <View style={styles.txList}>
-            {recent.map(tx => (
-              <TransactionItem key={tx.id} item={tx} onLongPress={handleDelete} />
-            ))}
-          </View>
+          <GlassCard style={styles.recentGlass} noPadding>
+            <View style={styles.recentGlassInner}>
+              {recent.map(tx => (
+                <TransactionItem key={tx.id} item={tx} onLongPress={handleDelete} />
+              ))}
+            </View>
+          </GlassCard>
         )}
+        </View>
 
       </ScrollView>
 
@@ -268,8 +307,7 @@ export default function HomeScreen() {
         onAddTransaction={() => setModalVisible(true)}
         onOpenGoals={() => router.push('/goals')}
       />
-      </ImageBackground>
-    </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
@@ -339,9 +377,35 @@ const teaserStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: PALETTE.bg },
+  safe:        { flex: 1, backgroundColor: 'transparent' },
   bgPattern:   { flex: 1 },
   scroll:      { paddingBottom: 100 },
+  scrollVN:    { paddingBottom: 110 },
+
+  // ── Visual-novel hub ──
+  vnGear: {
+    position: 'absolute', top: 14, right: 16,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(76,29,149,0.45)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  vnTalkBtn: {
+    position: 'absolute', right: 16,
+    top: VN_BACKDROP_HEIGHT * 0.52,
+    backgroundColor: 'rgba(236,72,153,0.9)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 18, paddingVertical: 9,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)',
+    shadowColor: '#be185d', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
+  },
+  vnTalkText: { color: '#fff', fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.3 },
+  vnBody: {
+    marginTop: Spacing.md,    // clear gap below the dialogue box
+    paddingHorizontal: Spacing.lg,
+  },
+  vnBalanceCard: { marginBottom: Spacing.lg, padding: Spacing.sm },
 
   pageGlow: {
     position: 'absolute',
@@ -382,8 +446,9 @@ const styles = StyleSheet.create({
   },
   heroTopRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   heroLabel:   { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, fontWeight: FontWeight.semibold },
-  coinPill:    { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)',
+  coinPill:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.15)',
                  borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  coinPillIcon:{ width: 16, height: 16 },
   coinPillText:{ fontSize: 12, color: '#fef3c7', fontWeight: FontWeight.bold },
   heroBoostBadge:{ marginTop: 6, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: Radius.full,
                    paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
@@ -396,18 +461,8 @@ const styles = StyleSheet.create({
   heroStatLabel:{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
   heroStatSep: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: Spacing.xl },
 
-  streakBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    marginHorizontal: Spacing.lg, marginBottom: Spacing.lg,
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
-    backgroundColor: '#fff',
-    borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: PALETTE.cardBorder,
-  },
-  streakBannerActive: {
-    backgroundColor: '#fdf4ff',
-    borderColor: PALETTE.pink + '55',
-  },
+  streakBannerGlass: { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg },
+  streakBannerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   streakIcon:  { fontSize: 22 },
   streakTitle: { fontSize: 13, fontWeight: FontWeight.bold, color: PALETTE.textPrimary },
   streakSub:   { fontSize: 11, color: PALETTE.textSecondary, marginTop: 2 },
@@ -415,6 +470,8 @@ const styles = StyleSheet.create({
 
   goalsRow:    { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
   txList:      { paddingHorizontal: Spacing.lg },
+  recentGlass: { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg },
+  recentGlassInner: { paddingHorizontal: Spacing.md, paddingVertical: 4 },
   recentHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: Spacing.lg },
   seeAllBtn:   { marginTop: Spacing.sm, paddingVertical: 4, paddingHorizontal: 8 },
   seeAllText:  { fontSize: 12, fontWeight: FontWeight.bold, color: PALETTE.pink },

@@ -46,6 +46,36 @@ export const FontWeight = {
   bold: '700' as const,
 };
 
+// ── Glass / frosted-panel design tokens ─────────────────────────────
+// Used by the reskin so every screen renders translucent "glass" panels
+// floating over the room background, instead of solid white cards.
+// Designed to read as glass even where expo-blur falls back to a plain
+// translucent fill (Android on SDK 54).
+export const Glass = {
+  // Panel fills (layered over the BlurView tint)
+  fill:        'rgba(255,255,255,0.55)',  // standard frosted panel
+  fillStrong:  'rgba(255,255,255,0.72)',  // when content needs more contrast
+  fillSubtle:  'rgba(255,255,255,0.35)',  // faint chips / secondary panels
+  fillDark:    'rgba(76,29,149,0.42)',    // purple-tinted glass (hero/accent)
+  // Borders — a bright top edge sells the glass look
+  border:      'rgba(255,255,255,0.65)',
+  borderSoft:  'rgba(255,255,255,0.4)',
+  // Blur tints for <BlurView tint=...>
+  tint:        'light' as const,
+  intensity:   40,
+  // Glow shadow for floating panels
+  glow: {
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  // Room background gradient stops (top → bottom): dusk lavender → pink
+  bgGradient: ['#ede9fe', '#f5e1f5', '#fce7f3'] as const,
+  bgGradientDusk: ['#d8c9f5', '#e9d5f0', '#f7d9e8'] as const,
+} as const;
+
 export type Category =
   | '🍔 Food'
   | '🚗 Transport'

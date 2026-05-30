@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useStore } from '../../src/store/useStore';
 import { TransactionItem, EmptyState, SectionTitle } from '../../src/components';
+import { GlassCard, ScreenBackground } from '../../src/components/Glass';
 import AddTransactionModal from '../../src/components/AddTransactionModal';
 import { Colors, Spacing, Radius, FontWeight } from '../../src/theme';
 import { groupByDate, fmtCurrency } from '../../src/utils/format';
@@ -40,21 +41,28 @@ export default function TransactionsScreen() {
   ];
 
   return (
+    <ScreenBackground>
     <SafeAreaView style={styles.safe}>
       {/* Summary row */}
       <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Total In</Text>
-          <Text style={[styles.summaryVal, { color: Colors.income }]}>{fmtCurrency(income)}</Text>
-        </View>
-        <View style={[styles.summaryCard, { marginHorizontal: Spacing.sm }]}>
-          <Text style={styles.summaryLabel}>Total Out</Text>
-          <Text style={[styles.summaryVal, { color: Colors.expense }]}>{fmtCurrency(expenses)}</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Entries</Text>
-          <Text style={styles.summaryVal}>{transactions.length}</Text>
-        </View>
+        <GlassCard variant="strong" style={styles.summaryCard} noPadding>
+          <View style={styles.summaryInner}>
+            <Text style={styles.summaryLabel}>Total In</Text>
+            <Text style={[styles.summaryVal, { color: Colors.income }]}>{fmtCurrency(income)}</Text>
+          </View>
+        </GlassCard>
+        <GlassCard variant="strong" style={[styles.summaryCard, { marginHorizontal: Spacing.sm }]} noPadding>
+          <View style={styles.summaryInner}>
+            <Text style={styles.summaryLabel}>Total Out</Text>
+            <Text style={[styles.summaryVal, { color: Colors.expense }]}>{fmtCurrency(expenses)}</Text>
+          </View>
+        </GlassCard>
+        <GlassCard variant="strong" style={styles.summaryCard} noPadding>
+          <View style={styles.summaryInner}>
+            <Text style={styles.summaryLabel}>Entries</Text>
+            <Text style={styles.summaryVal}>{transactions.length}</Text>
+          </View>
+        </GlassCard>
       </View>
 
       {/* Filter pills */}
@@ -96,17 +104,19 @@ export default function TransactionsScreen() {
 
       <AddTransactionModal visible={modalVisible} onClose={() => setModalVisible(false)} />
     </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:         { flex: 1, backgroundColor: Colors.background },
+  safe:         { flex: 1, backgroundColor: 'transparent' },
   summaryRow:   { flexDirection: 'row', margin: Spacing.lg, marginBottom: Spacing.sm },
-  summaryCard:  { flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 0.5, borderColor: Colors.border, padding: Spacing.md },
+  summaryCard:  { flex: 1 },
+  summaryInner: { padding: Spacing.md, alignItems: 'flex-start' },
   summaryLabel: { fontSize: 11, color: Colors.textSecondary, fontWeight: FontWeight.semibold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   summaryVal:   { fontSize: 18, fontWeight: FontWeight.bold, color: Colors.textPrimary },
   filterRow:    { flexDirection: 'row', paddingHorizontal: Spacing.lg, gap: Spacing.sm, marginBottom: Spacing.md },
-  pill:         { paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full, backgroundColor: Colors.surface, borderWidth: 0.5, borderColor: Colors.border },
+  pill:         { paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full, backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
   pillActive:   { backgroundColor: '#ec4899', borderColor: '#ec4899' },
   pillText:     { fontSize: 13, color: Colors.textSecondary, fontWeight: FontWeight.semibold },
   pillTextActive:{ color: '#fff' },
