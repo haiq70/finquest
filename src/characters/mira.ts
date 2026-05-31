@@ -206,6 +206,59 @@ const SCRIPT: ScriptTable = {
   },
 };
 
+// Interactive choice prompts — bratty, sarcastic, secretly invested.
+// She rewards sass, honesty, and backbone. Being too soft/earnest gets
+// mocked (small affection loss); playing along with her chaos pays off.
+const CHOICE_PROMPTS: import('./types').ChoicePrompt[] = [
+  {
+    id: 'm_broke',
+    prompt: "Okay be real with me. On a scale of 'fine' to 'eating cereal for dinner,' how broke are we this week?",
+    options: [
+      { label: "Cereal. Possibly twice.", affection: 5, coins: 0, reaction: "HA. See, THIS is why I like you. You don't lie to me. Disgustingly refreshing." },
+      { label: "I'm doing great actually.", affection: -2, coins: 0, reaction: "Mm-hm. Sure. And I'm secretly a morning person. We both know you're lying, broke-y." },
+      { label: "None of your business.", affection: 0, coins: 35, reaction: "Ooh, spicy. Fine, keep your secrets. Here's some cash to fund the mystery." },
+    ],
+  },
+  {
+    id: 'm_splurge',
+    prompt: "You're STARING at something you can't afford right now, aren't you. I can tell. What is it.",
+    options: [
+      { label: "Caught me. It's so dumb. I want it.", affection: 5, coins: 0, reaction: "God, relatable. Want the dumb thing. Just… save up for it like an adult, you gremlin." },
+      { label: "Nothing! I'm being responsible!", affection: -2, coins: 0, reaction: "Liar. Your eyes did a thing. I SAW the thing. Don't insult me." },
+      { label: "Already bought it. No regrets.", affection: -1, coins: 40, reaction: "You absolute menace. I'm furious. I'm also a little proud. Here, before I change my mind." },
+    ],
+  },
+  {
+    id: 'm_softie',
+    minTier: 'friend',
+    prompt: "Don't make this weird, but… why do you keep coming back to talk to ME instead of the nice one?",
+    options: [
+      { label: "Because you're secretly the best.", affection: 6, coins: 0, reaction: "...Shut UP. You can't just SAY that. Ugh. Okay. Whatever. Don't tell anyone I smiled." },
+      { label: "You're funnier. That's it.", affection: 4, coins: 0, reaction: "Damn right I'm funnier. Finally, someone with taste. Stick around, I guess." },
+      { label: "I felt bad for you.", affection: -3, coins: 0, reaction: "Excuse me?! PITY? I do NOT need your— okay that one actually stung, knock it off." },
+    ],
+  },
+  {
+    id: 'm_advice',
+    prompt: "Fine, I'll be useful for ONE second. Want my actual money tip or you gonna wing it like usual?",
+    options: [
+      { label: "Hit me. I'm listening.", affection: 4, coins: 0, reaction: "Okay: pay yourself FIRST, broke-y. Money you don't see, you don't blow. Boom. Wisdom." },
+      { label: "Winging it. Always have.", affection: -1, coins: 20, reaction: "Of COURSE you are. You chaos goblin. Take this and try not to set it on fire." },
+      { label: "Only if you stop calling me broke.", affection: 0, coins: 30, reaction: "Hahaha — no. That's your name now. But here, hush money. Literally." },
+    ],
+  },
+  {
+    id: 'm_real',
+    minTier: 'close',
+    prompt: "Ugh, soft moment incoming, brace yourself. You're… actually doing better lately. Did you notice?",
+    options: [
+      { label: "Only because of you.", affection: 7, coins: 0, reaction: "...Okay that's not fair, you can't just— *I'm* supposed to be the smooth one. Stop it. (Thank you.)" },
+      { label: "I did. Feels good.", affection: 5, coins: 0, reaction: "Good. You SHOULD feel good. I'd never say it twice but you earned it, you know." },
+      { label: "Don't get sappy on me.", affection: -1, coins: 40, reaction: "Rude! I extend ONE olive branch— ugh. Fine. Take the cash and choke on the sentiment anyway." },
+    ],
+  },
+];
+
 export const MIRA: CharacterDef = {
   id: 'mira',
   name: 'Mira',
@@ -217,5 +270,6 @@ export const MIRA: CharacterDef = {
     sad:     require('../../assets/images/mira/sad.jpg'),
   },
   script: SCRIPT,
+  choicePrompts: CHOICE_PROMPTS,
   unlockedByDefault: false,
 };

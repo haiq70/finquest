@@ -1,5 +1,5 @@
-import type { CharacterDef, CharacterId, DialogueEvent, Mood, RelationshipTier } from './types';
-import { pickLineFrom } from './types';
+import type { CharacterDef, CharacterId, ChoicePrompt, DialogueEvent, Mood, RelationshipTier } from './types';
+import { pickLineFrom, pickChoicePrompt } from './types';
 import { KASUMI } from './kasumi';
 import { MIRA } from './mira';
 
@@ -32,4 +32,13 @@ export function pickLineFor(
   seed?: number,
 ): string {
   return pickLineFrom(getCharacter(id).script, event, tier, seed);
+}
+
+/** Pick an eligible choice prompt for a character at a given tier. */
+export function choicePromptFor(
+  id: CharacterId,
+  tier: RelationshipTier,
+  excludeId?: string,
+): ChoicePrompt | null {
+  return pickChoicePrompt(getCharacter(id).choicePrompts, tier, excludeId);
 }

@@ -23,12 +23,15 @@ import {
 } from '../kasumi/affection';
 import {
   pickLineFor,
+  choicePromptFor,
   tierFromAffection,
   getCharacter,
   CHARACTERS,
   DEFAULT_CHARACTER_ID,
   type CharacterId,
   type CharacterDef,
+  type ChoicePrompt,
+  type ChoiceOption,
   type DialogueEvent,
   type Mood,
   type RelationshipTier,
@@ -162,6 +165,12 @@ interface StoreState {
   // First-launch story intro: false until the player has seen the opening
   // popup that introduces the premise + Kasumi.
   hasSeenIntro: boolean;
+  // Interactive choice prompt currently awaiting the player's pick (or null).
+  pendingChoicePrompt: ChoicePrompt | null;
+  // Id of the last choice prompt shown, to avoid immediate repeats.
+  lastChoicePromptId: string | null;
+  // Reaction line + reward to show after a choice is resolved (transient).
+  choiceResult: { reaction: string; affection: number; coins: number } | null;
 
   affection: number;            // 0..100 (active character)
   hasMet: boolean;              // false until first interaction
@@ -218,6 +227,8 @@ interface StoreState {
   setActiveCharacter: (id: CharacterId) => void;  // switch active companion
   clearPendingCharacterUnlock: () => void;        // dismiss the unlock popup
   markIntroSeen: () => void;                       // dismiss the first-launch intro
+  resolveChoicePrompt: (optionIndex: number) => void;  // player picked a choice option
+  clearChoiceResult: () => void;                   // dismiss the post-choice reaction
 
   // Derived (computed on the fly — not stored)
   getTotals: () => { income: number; expenses: number; balance: number };
@@ -288,6 +299,16 @@ export const useStore = create<StoreState>()(
           };
         }
 
+        // Choice prompt on tier-up (always) — unless an unlock popup is taking
+        // this moment. The prompt waits its turn behind the unlock if both fire.
+        let choicePatch: Partial<StoreState> = {};
+        if (tierChanged && !unlockPatch.pendingCharacterUnlock) {
+          const prompt = choicePromptFor(charId, newTier.key, state.lastChoicePromptId ?? undefined);
+          if (prompt) {
+            choicePatch = { pendingChoicePrompt: prompt, lastChoicePromptId: prompt.id };
+          }
+        }
+
         set({
           affection: newAffection,
           lastTierKey: newTier.key,
@@ -296,7 +317,24 @@ export const useStore = create<StoreState>()(
           currentLine: finalLine,
           moodExpiresAt: Date.now() + finalDuration,
           ...unlockPatch,
+          ...choicePatch,
         });
+      }
+
+      // Random choice prompt on income — roughly every other time (~50%),
+      // so it's a treat, not spam, and can't be farmed. Skips if a prompt is
+      // already pending (e.g. a tier-up just queued one) or an unlock popup is up.
+      function maybeQueueIncomeChoicePrompt() {
+        const state = get();
+        if (state.pendingChoicePrompt || state.pendingCharacterUnlock) return;
+        if (Math.random() < 0.5) return;
+        const tier = tierFromAffection(state.affection);
+        const prompt = choicePromptFor(
+          state.activeCharacterId, tier.key, state.lastChoicePromptId ?? undefined,
+        );
+        if (prompt) {
+          set({ pendingChoicePrompt: prompt, lastChoicePromptId: prompt.id });
+        }
       }
 
       // ── Achievement helper ──────────────────────────────────────
@@ -347,6 +385,9 @@ export const useStore = create<StoreState>()(
         companions: freshCompanionMap(),
         pendingCharacterUnlock: null,
         hasSeenIntro: false,
+        pendingChoicePrompt: null,
+        lastChoicePromptId: null,
+        choiceResult: null,
 
         affection: 0,
         hasMet: false,
@@ -596,6 +637,7 @@ export const useStore = create<StoreState>()(
                 ? moodEventForIncome(tx.amount)
                 : moodEventForExpense(tx.amount)
             );
+            if (tx.type === 'income') maybeQueueIncomeChoicePrompt();
             checkAndQueueAchievements();
             return;
           }
@@ -607,6 +649,7 @@ export const useStore = create<StoreState>()(
               ? moodEventForIncome(tx.amount)
               : moodEventForExpense(tx.amount)
           );
+          if (tx.type === 'income') maybeQueueIncomeChoicePrompt();
           checkAndQueueAchievements();
         },
 
@@ -810,6 +853,34 @@ export const useStore = create<StoreState>()(
           set({ hasSeenIntro: true });
         },
 
+        resolveChoicePrompt(optionIndex: number) {
+          const state = get();
+          const prompt = state.pendingChoicePrompt;
+          if (!prompt) return;
+          const opt = prompt.options[optionIndex];
+          if (!opt) return;
+
+          const newAffection = clampAffection(state.affection + opt.affection);
+          const mood: Mood = opt.affection > 0 ? 'happy' : opt.affection < 0 ? 'sad' : 'neutral';
+          // The reaction stays on screen a beat; mood relaxes afterward.
+          set({
+            affection: newAffection,
+            lastTierKey: tierFromAffection(newAffection).key,
+            coins: state.coins + Math.max(0, opt.coins),
+            totalCoinsEarned: state.totalCoinsEarned + Math.max(0, opt.coins),
+            currentMood: mood,
+            currentEvent: 'idle',
+            currentLine: opt.reaction,
+            moodExpiresAt: Date.now() + 5000,
+            pendingChoicePrompt: null,
+            choiceResult: { reaction: opt.reaction, affection: opt.affection, coins: opt.coins },
+          });
+        },
+
+        clearChoiceResult() {
+          set({ choiceResult: null });
+        },
+
         // ── Derived ────────────────────────────────────────────
 
         getTotals() {
@@ -942,6 +1013,7 @@ export const useStore = create<StoreState>()(
         unlockedCharacterIds: state.unlockedCharacterIds,
         companions: state.companions,
         hasSeenIntro: state.hasSeenIntro,
+        lastChoicePromptId: state.lastChoicePromptId,
         // Achievement persistence
         unlockedAchievementIds: state.unlockedAchievementIds,
         // Shop & currency persistence

@@ -68,8 +68,37 @@ export interface CharacterDef {
   portraits: Record<Mood, any>;
   /** Full dialogue script (event × tier). */
   script: ScriptTable;
+  /** Interactive choice prompts shown on income (random) and tier-up. */
+  choicePrompts: ChoicePrompt[];
   /** If true, the player starts with this character unlocked. */
   unlockedByDefault: boolean;
+}
+
+// ── Interactive choice prompts ──────────────────────────────────────
+// A small "dialogue tree" beat: the character says something, the player
+// picks one of several replies, and the reply grants a hidden reward
+// (affection and/or coins — which can be negative for affection).
+
+export interface ChoiceOption {
+  /** The reply text shown on the button. */
+  label: string;
+  /** Affection change (can be negative; keep losses small, e.g. -3). */
+  affection: number;
+  /** Coin (FC) reward. Usually 0 or positive. */
+  coins: number;
+  /** The character's reaction line after this choice is picked. */
+  reaction: string;
+}
+
+export interface ChoicePrompt {
+  /** Unique id (for not repeating the same prompt back-to-back). */
+  id: string;
+  /** Optional: only show at/after this tier. Omit = any tier. */
+  minTier?: RelationshipTier;
+  /** The setup line the character opens with. */
+  prompt: string;
+  /** 2-3 reply options. */
+  options: ChoiceOption[];
 }
 
 // ── Mood selection (shared across characters) ───────────────────────
@@ -120,4 +149,29 @@ export function pickLineFrom(
     ? Math.floor(Math.random() * pool.length)
     : seed % pool.length;
   return pool[idx];
+}
+
+// Tier ordering for gating (low → high).
+const TIER_ORDER: RelationshipTier[] = ['stranger', 'acquaintance', 'friend', 'close', 'soulmate'];
+
+export function tierAtLeast(tier: RelationshipTier, min: RelationshipTier): boolean {
+  return TIER_ORDER.indexOf(tier) >= TIER_ORDER.indexOf(min);
+}
+
+/**
+ * Pick a choice prompt eligible at the given tier, avoiding `excludeId`
+ * (the last-seen prompt) when possible. Returns null if none available.
+ */
+export function pickChoicePrompt(
+  prompts: ChoicePrompt[],
+  tier: RelationshipTier,
+  excludeId?: string,
+): ChoicePrompt | null {
+  const eligible = prompts.filter(p => !p.minTier || tierAtLeast(tier, p.minTier));
+  if (eligible.length === 0) return null;
+  const pool = eligible.length > 1 && excludeId
+    ? eligible.filter(p => p.id !== excludeId)
+    : eligible;
+  const finalPool = pool.length > 0 ? pool : eligible;
+  return finalPool[Math.floor(Math.random() * finalPool.length)];
 }

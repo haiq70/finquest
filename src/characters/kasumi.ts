@@ -235,6 +235,59 @@ const SCRIPT: ScriptTable = {
   },
 };
 
+// Interactive choice prompts — warm, earnest. Replies that show care,
+// honesty, or sensible money-thinking please her (affection); some grant
+// coins; a few misread her and cost a little affection.
+const CHOICE_PROMPTS: import('./types').ChoicePrompt[] = [
+  {
+    id: 'k_coffee',
+    prompt: "Be honest with me — that coffee habit. Are we tracking it, or pretending it doesn't happen?",
+    options: [
+      { label: "Tracking every cup, I promise.", affection: 5, coins: 0, reaction: "Good. The honest little numbers are the ones that change things." },
+      { label: "...Pretending. Loudly.", affection: 0, coins: 30, reaction: "Ha! At least you're honest about the dishonesty. Here — caffeine fund. Use it wisely." },
+      { label: "Coffee's a need, not a want.", affection: -2, coins: 0, reaction: "Mm. That's the kind of thing we tell ourselves at 3pm. I'll let it go. This time." },
+    ],
+  },
+  {
+    id: 'k_weekend',
+    prompt: "Quiet weekend coming up. What's the plan — rest, or chase something?",
+    options: [
+      { label: "Rest. Recharge. No spending.", affection: 4, coins: 0, reaction: "I love that for you. Rest is free and you've earned it." },
+      { label: "Pick up a side gig.", affection: 2, coins: 40, reaction: "Ambitious. I admire it — just don't burn out on me. Here, a little something." },
+      { label: "Treat myself, obviously.", affection: -1, coins: 0, reaction: "Okay, okay. Just… a small treat. We're still watching that balance." },
+    ],
+  },
+  {
+    id: 'k_future',
+    minTier: 'friend',
+    prompt: "Can I ask something real? When you picture having money sorted — what's the first feeling?",
+    options: [
+      { label: "Safe. Finally safe.", affection: 6, coins: 0, reaction: "...Yeah. That's the one that matters. We're building toward exactly that." },
+      { label: "Free to help people I love.", affection: 6, coins: 0, reaction: "Oh. That's a beautiful reason to be careful with it. I mean that." },
+      { label: "Rich enough to stop counting.", affection: -2, coins: 20, reaction: "Counting isn't the enemy, you know. But… I get the dream. Here." },
+    ],
+  },
+  {
+    id: 'k_slip',
+    prompt: "You went a little over budget this week. How are we feeling about it?",
+    options: [
+      { label: "Owning it. Back on track tomorrow.", affection: 5, coins: 0, reaction: "That's maturity, right there. One week doesn't undo you." },
+      { label: "Already adjusted next week's plan.", affection: 3, coins: 25, reaction: "Proactive. That's the good stuff. A little reward for thinking ahead." },
+      { label: "It's fine, it doesn't matter.", affection: -3, coins: 0, reaction: "It's not a crisis… but it does matter. I'd rather we don't pretend it doesn't." },
+    ],
+  },
+  {
+    id: 'k_gift',
+    minTier: 'close',
+    prompt: "If I could give you one thing right now — advice or a little cash for a goal — which?",
+    options: [
+      { label: "Your advice. Always.", affection: 7, coins: 0, reaction: "...You're going to make me emotional. Okay. Advice it is, for as long as you want it." },
+      { label: "The cash, let's be real.", affection: 0, coins: 60, reaction: "Pragmatic. I respect it. Don't say I never gave you anything." },
+      { label: "Why not both?", affection: -1, coins: 30, reaction: "Cheeky. Fine — a little of both. You're lucky I like you." },
+    ],
+  },
+];
+
 export const KASUMI: CharacterDef = {
   id: 'kasumi',
   name: 'Kasumi',
@@ -247,5 +300,6 @@ export const KASUMI: CharacterDef = {
     sad:     require('../../assets/images/kasumi/sad.jpeg'),
   },
   script: SCRIPT,
+  choicePrompts: CHOICE_PROMPTS,
   unlockedByDefault: true,
 };

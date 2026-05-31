@@ -126,6 +126,17 @@ export default function SettingsScreen() {
             <Text style={styles.rowTitle}>FinQuest</Text>
             <Text style={styles.rowValue}>v1.1</Text>
           </View>
+          <View style={styles.divider} />
+          <Pressable
+            style={styles.row}
+            onPress={() => { playTap(); router.push('/privacy'); }}
+          >
+            <View style={styles.rowLabel}>
+              <Ionicons name="shield-checkmark" size={20} color={P.pink} />
+              <Text style={styles.rowTitle}>Privacy Policy</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={P.textMuted} />
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
