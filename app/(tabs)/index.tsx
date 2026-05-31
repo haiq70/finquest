@@ -23,7 +23,7 @@ import AddTransactionModal from '../../src/components/AddTransactionModal';
 import { GlassCard, ScreenBackground } from '../../src/components/Glass';
 import { VNBackdrop, VN_BACKDROP_HEIGHT } from '../../src/components/VNBackdrop';
 import { ACHIEVEMENTS, RARITY_COLORS } from '../../src/kasumi/achievements';
-import { tierFromAffection, pickLine, type Mood } from '../../src/kasumi/dialogue';
+import { tierFromAffection, pickLineFor, portraitsFor, getCharacter, type Mood } from '../../src/characters';
 import { KasumiDialogueModal } from '../../src/kasumi/KasumiDialogueModal';
 import { MULTIPLIER_STREAK_GATE, streakMultiplier } from '../../src/kasumi/xp';
 import { playTap } from '../../src/utils/sound';
@@ -46,13 +46,6 @@ const PALETTE = {
   pinkDeep:     '#be185d',
   income:       '#22c55e',
   expense:      '#ef4444',
-};
-
-// Character art for the VN backdrop, keyed by mood.
-const FACES: Record<Mood, any> = {
-  neutral: require('../../assets/images/kasumi/neutral.png'),
-  happy:   require('../../assets/images/kasumi/happy.jpeg'),
-  sad:     require('../../assets/images/kasumi/sad.jpeg'),
 };
 
 export default function HomeScreen() {
@@ -85,6 +78,9 @@ export default function HomeScreen() {
   const refreshIdle    = useStore(s => s.refreshIdleLine);
   const tickMood       = useStore(s => s.tickMood);
   const isNetNegative  = useStore(s => s.isNetNegative);
+  const activeCharId   = useStore(s => s.activeCharacterId);
+  const activeChar     = getCharacter(activeCharId);
+  const charFaces      = portraitsFor(activeCharId);
   const kasumiTier     = tierFromAffection(affection);
 
   const { income, expenses, balance } = getTotals();
@@ -137,8 +133,8 @@ export default function HomeScreen() {
   const kasumiNetNeg = isNetNegative();
   const kasumiMood: Mood = kasumiNetNeg ? 'sad' : currentMood;
   const kasumiLine = kasumiNetNeg
-    ? pickLine('net_negative', kasumiTier.key)
-    : (currentLine || pickLine('idle', kasumiTier.key));
+    ? pickLineFor(activeCharId, 'net_negative', kasumiTier.key)
+    : (currentLine || pickLineFor(activeCharId, 'idle', kasumiTier.key));
 
   return (
     <ScreenBackground>
@@ -149,11 +145,12 @@ export default function HomeScreen() {
         {/* ── Visual-novel character backdrop ── */}
         <View>
           <VNBackdrop
-            source={FACES[kasumiMood]}
+            source={charFaces[kasumiMood]}
             line={kasumiLine}
+            speaker={activeChar.name}
             status={`${getGreeting()} · Level ${level}${streak > 0 ? `  ·  ${streak}d 🔥${streakMultiplier(streak) > 1 ? ` ${streakMultiplier(streak).toFixed(2).replace(/\.?0+$/, '')}×` : ''}` : ''}`}
             badge={kasumiTier.label}
-            badgeColor={kasumiTier.accent}
+            badgeColor={activeChar.accent}
           />
           {/* Settings gear over the top-right of the backdrop */}
           <TouchableOpacity
@@ -162,6 +159,14 @@ export default function HomeScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="settings-sharp" size={18} color="#fff" />
+          </TouchableOpacity>
+          {/* Character-select button, top-left under the badge */}
+          <TouchableOpacity
+            style={styles.vnSwitchBtn}
+            onPress={() => { playTap(); router.push('/characters'); }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="people" size={16} color="#fff" />
           </TouchableOpacity>
           {/* Tap-to-talk button, bottom-right over the backdrop */}
           <TouchableOpacity
@@ -386,6 +391,13 @@ const styles = StyleSheet.create({
   vnGear: {
     position: 'absolute', top: 14, right: 16,
     width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(76,29,149,0.45)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  vnSwitchBtn: {
+    position: 'absolute', top: 56, left: 16,
+    width: 34, height: 34, borderRadius: 17,
     backgroundColor: 'rgba(76,29,149,0.45)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center', justifyContent: 'center',

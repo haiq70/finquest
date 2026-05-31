@@ -7,17 +7,14 @@ import { useStore } from '../store/useStore';
 import { playTap } from '../utils/sound';
 import { FontWeight, Radius, Spacing } from '../theme';
 import {
-  pickLine,
+  pickLineFor,
   tierFromAffection,
+  portraitsFor,
+  getCharacter,
+  type CharacterId,
   type Mood,
-} from '../kasumi/dialogue';
+} from '../characters';
 import { AFFECTION_MAX } from '../kasumi/affection';
-
-const FACES: Record<Mood, any> = {
-  neutral: require('../../assets/images/kasumi/neutral.png'),
-  happy:   require('../../assets/images/kasumi/happy.jpeg'),
-  sad:     require('../../assets/images/kasumi/sad.jpeg'),
-};
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -53,6 +50,7 @@ interface DialogueChoice {
 // whatever Kasumi is currently reacting to, then layers idle small-talk
 // so the conversation feels like more than one beat.
 function buildScript(
+  charId: CharacterId,
   primaryLine: string,
   tierKey: ReturnType<typeof tierFromAffection>['key'],
   extras = 2,
@@ -61,7 +59,7 @@ function buildScript(
   if (primaryLine) lines.push(primaryLine);
   const seen = new Set<string>([primaryLine]);
   for (let i = 0; i < 6 && lines.length < extras + 1; i++) {
-    const l = pickLine('idle', tierKey);
+    const l = pickLineFor(charId, 'idle', tierKey);
     if (l && !seen.has(l)) {
       lines.push(l);
       seen.add(l);
@@ -78,6 +76,9 @@ export function KasumiDialogueModal({
   const currentLine    = useStore(s => s.currentLine);
   const refreshIdle    = useStore(s => s.refreshIdleLine);
   const isNetNegative  = useStore(s => s.isNetNegative);
+  const activeCharId   = useStore(s => s.activeCharacterId);
+  const activeChar     = getCharacter(activeCharId);
+  const charFaces      = portraitsFor(activeCharId);
 
   const tier = useMemo(() => tierFromAffection(affection), [affection]);
   const netNeg = isNetNegative();
@@ -92,11 +93,11 @@ export function KasumiDialogueModal({
     if (!visible) return;
     if (netNeg) {
       // Show two concerned lines — feels heavier than one, fits the mood.
-      const a = pickLine('net_negative', tier.key);
-      const b = pickLine('net_negative', tier.key);
+      const a = pickLineFor(activeCharId, 'net_negative', tier.key);
+      const b = pickLineFor(activeCharId, 'net_negative', tier.key);
       setScript(a === b ? [a] : [a, b]);
     } else {
-      setScript(buildScript(currentLine, tier.key));
+      setScript(buildScript(activeCharId, currentLine, tier.key));
     }
     setIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,7 +155,7 @@ export function KasumiDialogueModal({
         {/* Top bar */}
         <View style={styles.topBar}>
           <View style={styles.topLeft}>
-            <Text style={styles.name}>Kasumi <Text style={styles.heart}>♡</Text></Text>
+            <Text style={styles.name}>{activeChar.name} <Text style={styles.heart}>♡</Text></Text>
             <View style={[styles.tierPill, { backgroundColor: tier.accent + '22', borderColor: tier.accent + '88' }]}>
               <Text style={[styles.tierText, { color: tier.accent }]}>{tier.label}</Text>
             </View>
@@ -177,7 +178,7 @@ export function KasumiDialogueModal({
           <View style={[styles.portraitGlow, netNeg && { backgroundColor: PALETTE.pink + '30' }]} />
           <View style={[styles.portraitFrame, { borderColor: netNeg ? PALETTE.pink + '55' : tier.accent + '55' }]}>
             <Image
-              source={FACES[onScreen ? displayMood : 'neutral']}
+              source={charFaces[onScreen ? displayMood : 'neutral']}
               style={styles.portrait}
               resizeMode="cover"
             />
@@ -189,7 +190,7 @@ export function KasumiDialogueModal({
           <View style={[styles.dialogueBox, netNeg && styles.dialogueBoxConcerned]}>
             <View style={styles.dialogueHeader}>
               <View style={styles.speakerRow}>
-                <Text style={styles.dialogueSpeaker}>Kasumi</Text>
+                <Text style={styles.dialogueSpeaker}>{activeChar.name}</Text>
                 <Text style={styles.speakerHeart}>♡</Text>
               </View>
               {!atEnd && <Text style={styles.dialogueHint}>tap to continue ▾</Text>}

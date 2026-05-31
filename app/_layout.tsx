@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '../src/theme';
 import { AchievementQueue } from '../src/components/AchievementToast';
+import { CharacterUnlockModal } from '../src/components/CharacterUnlockModal';
 import { initSounds } from '../src/utils/sound';
 import { useSoundSettings } from '../src/store/useSoundSettings';
 
@@ -26,9 +27,12 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="characters" options={{ presentation: 'modal' }} />
         </Stack>
         {/* Global achievement toast overlay — renders above all screens */}
         <AchievementQueue />
+        {/* New-companion unlock popup — appears over any screen */}
+        <CharacterUnlockModal />
       </View>
     </GestureHandlerRootView>
   );

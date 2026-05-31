@@ -22,12 +22,17 @@ import {
   type MoodEvent,
 } from '../kasumi/affection';
 import {
-  pickLine,
+  pickLineFor,
   tierFromAffection,
+  getCharacter,
+  CHARACTERS,
+  DEFAULT_CHARACTER_ID,
+  type CharacterId,
+  type CharacterDef,
   type DialogueEvent,
   type Mood,
   type RelationshipTier,
-} from '../kasumi/dialogue';
+} from '../characters';
 import {
   BASE_XP_GOAL_CONTRIB,
   BASE_XP_INCOME,
@@ -95,6 +100,37 @@ export function calcXpInLevel(xp: number): number {
   return xp % XP_PER_LEVEL;
 }
 
+// ── Companion state ─────────────────────────────────────────────────
+// Per-character relationship progress. The active character's copy is
+// mirrored into the store's top-level fields; the rest live in `companions`.
+export interface CompanionState {
+  affection: number;
+  hasMet: boolean;
+  lastTierKey: RelationshipTier;
+  currentMood: Mood;
+  currentEvent: DialogueEvent;
+  currentLine: string;
+  moodExpiresAt: number | null;
+}
+
+function freshCompanion(): CompanionState {
+  return {
+    affection: 0,
+    hasMet: false,
+    lastTierKey: 'stranger',
+    currentMood: 'neutral',
+    currentEvent: 'idle',
+    currentLine: '',
+    moodExpiresAt: null,
+  };
+}
+
+function freshCompanionMap(): Record<CharacterId, CompanionState> {
+  const map = {} as Record<CharacterId, CompanionState>;
+  for (const c of CHARACTERS) map[c.id] = freshCompanion();
+  return map;
+}
+
 // ── Store ──────────────────────────────────────────────────────────
 
 interface StoreState {
@@ -113,12 +149,25 @@ interface StoreState {
   // ── Last XP award (for transient UI feedback) ─────────────────
   lastXpAward: XpAward | null;
 
-  // ── Kasumi (companion) ────────────────────────────────────────
-  affection: number;            // 0..100
-  hasMet: boolean;              // false until first interaction with her
+  // ── Companion (active character) ──────────────────────────────
+  // The top-level fields below mirror the *currently active* character.
+  // Inactive characters' progress is stashed in `companions`.
+  activeCharacterId: CharacterId;
+  unlockedCharacterIds: CharacterId[];
+  // Saved state for every character (including the active one, synced on change).
+  companions: Record<CharacterId, CompanionState>;
+  // When a new character unlocks, this holds their id until the UI shows
+  // the unlock popup, then it's cleared.
+  pendingCharacterUnlock: CharacterId | null;
+  // First-launch story intro: false until the player has seen the opening
+  // popup that introduces the premise + Kasumi.
+  hasSeenIntro: boolean;
+
+  affection: number;            // 0..100 (active character)
+  hasMet: boolean;              // false until first interaction
   lastTierKey: RelationshipTier;// to detect tier-ups
   currentMood: Mood;            // which face to render right now
-  currentEvent: DialogueEvent;  // what she's reacting to right now
+  currentEvent: DialogueEvent;  // what they're reacting to right now
   currentLine: string;          // line associated with currentEvent
   moodExpiresAt: number | null; // epoch ms when mood relaxes to idle
 
@@ -161,11 +210,14 @@ interface StoreState {
   deleteGoal: (id: string) => void;
   contributeToGoal: (goalId: string, amount: number) => void;
 
-  // Kasumi actions
+  // Companion actions
   markMet: () => void;
   refreshIdleLine: () => void;     // pick a new ambient line
   acknowledgeMood: () => void;     // user tapped the speech bubble → relax to idle
   tickMood: () => void;            // called periodically; relaxes expired mood
+  setActiveCharacter: (id: CharacterId) => void;  // switch active companion
+  clearPendingCharacterUnlock: () => void;        // dismiss the unlock popup
+  markIntroSeen: () => void;                       // dismiss the first-launch intro
 
   // Derived (computed on the fly — not stored)
   getTotals: () => { income: number; expenses: number; balance: number };
@@ -200,6 +252,7 @@ export const useStore = create<StoreState>()(
       // tier-up and overlay the tier-up reaction if it happened.
       function applyMoodEvent(me: MoodEvent) {
         const state = get();
+        const charId = state.activeCharacterId;
         const oldTier = tierFromAffection(state.affection);
         const newAffection = clampAffection(state.affection + me.affectionDelta);
         const newTier = tierFromAffection(newAffection);
@@ -218,7 +271,22 @@ export const useStore = create<StoreState>()(
         const finalDuration = tierChanged
           ? Math.max(me.durationMs, MOOD_EVENT_TIER_UP.durationMs)
           : me.durationMs;
-        const finalLine = pickLine(finalEvent, newTier.key);
+        const finalLine = pickLineFor(charId, finalEvent, newTier.key);
+
+        // Story unlock: when Kasumi advances past her first tier (stranger →
+        // acquaintance), Mira becomes available. Queue the unlock popup.
+        let unlockPatch: Partial<StoreState> = {};
+        if (
+          tierChanged &&
+          charId === 'kasumi' &&
+          oldTier.key === 'stranger' &&
+          !state.unlockedCharacterIds.includes('mira')
+        ) {
+          unlockPatch = {
+            unlockedCharacterIds: [...state.unlockedCharacterIds, 'mira'],
+            pendingCharacterUnlock: 'mira',
+          };
+        }
 
         set({
           affection: newAffection,
@@ -227,6 +295,7 @@ export const useStore = create<StoreState>()(
           currentEvent: finalEvent,
           currentLine: finalLine,
           moodExpiresAt: Date.now() + finalDuration,
+          ...unlockPatch,
         });
       }
 
@@ -272,7 +341,13 @@ export const useStore = create<StoreState>()(
         lastSavingDate: null,
         lastXpAward: null,
 
-        // Kasumi defaults
+        // Companion defaults
+        activeCharacterId: DEFAULT_CHARACTER_ID,
+        unlockedCharacterIds: CHARACTERS.filter(c => c.unlockedByDefault).map(c => c.id),
+        companions: freshCompanionMap(),
+        pendingCharacterUnlock: null,
+        hasSeenIntro: false,
+
         affection: 0,
         hasMet: false,
         lastTierKey: 'stranger' as RelationshipTier,
@@ -639,51 +714,100 @@ export const useStore = create<StoreState>()(
           checkAndQueueAchievements();
         },
 
-        // ── Kasumi actions ─────────────────────────────────────
+        // ── Companion actions ──────────────────────────────────
 
         markMet() {
           if (get().hasMet) return;
+          const id = get().activeCharacterId;
           set({
             hasMet: true,
             currentEvent: 'first_meeting',
             currentMood: 'neutral',
-            currentLine: pickLine('first_meeting', 'stranger'),
+            currentLine: pickLineFor(id, 'first_meeting', 'stranger'),
             moodExpiresAt: Date.now() + 6000,
           });
         },
 
         refreshIdleLine() {
-          const tier = tierFromAffection(get().affection);
+          const { activeCharacterId, affection } = get();
+          const tier = tierFromAffection(affection);
           set({
             currentEvent: 'idle',
             currentMood: 'neutral',
-            currentLine: pickLine('idle', tier.key),
+            currentLine: pickLineFor(activeCharacterId, 'idle', tier.key),
             moodExpiresAt: null,
           });
         },
 
         acknowledgeMood() {
-          const tier = tierFromAffection(get().affection);
+          const { activeCharacterId, affection } = get();
+          const tier = tierFromAffection(affection);
           set({
             currentEvent: 'idle',
             currentMood: 'neutral',
-            currentLine: pickLine('idle', tier.key),
+            currentLine: pickLineFor(activeCharacterId, 'idle', tier.key),
             moodExpiresAt: null,
           });
         },
 
         tickMood() {
-          const { moodExpiresAt, currentEvent } = get();
+          const { moodExpiresAt, currentEvent, activeCharacterId, affection } = get();
           if (!moodExpiresAt) return;
           if (Date.now() >= moodExpiresAt && currentEvent !== 'idle') {
-            const tier = tierFromAffection(get().affection);
+            const tier = tierFromAffection(affection);
             set({
               currentEvent: 'idle',
               currentMood: 'neutral',
-              currentLine: pickLine('idle', tier.key),
+              currentLine: pickLineFor(activeCharacterId, 'idle', tier.key),
               moodExpiresAt: null,
             });
           }
+        },
+
+        setActiveCharacter(id: CharacterId) {
+          const state = get();
+          if (id === state.activeCharacterId) return;
+          if (!state.unlockedCharacterIds.includes(id)) return;
+
+          // Stash the current active character's live state back into the map…
+          const savedActive: CompanionState = {
+            affection: state.affection,
+            hasMet: state.hasMet,
+            lastTierKey: state.lastTierKey,
+            currentMood: state.currentMood,
+            currentEvent: state.currentEvent,
+            currentLine: state.currentLine,
+            moodExpiresAt: state.moodExpiresAt,
+          };
+          const companions = { ...state.companions, [state.activeCharacterId]: savedActive };
+
+          // …and load the target character's saved state into the top-level fields.
+          const next = companions[id] ?? freshCompanion();
+
+          // If they've never been met, prime an idle line so the home screen
+          // isn't blank before first interaction.
+          const tier = tierFromAffection(next.affection);
+          const primedLine = next.currentLine || pickLineFor(id, 'idle', tier.key);
+
+          set({
+            activeCharacterId: id,
+            companions,
+            affection: next.affection,
+            hasMet: next.hasMet,
+            lastTierKey: next.lastTierKey,
+            currentMood: next.currentMood,
+            currentEvent: next.currentEvent,
+            currentLine: primedLine,
+            moodExpiresAt: next.moodExpiresAt,
+          });
+        },
+
+        clearPendingCharacterUnlock() {
+          set({ pendingCharacterUnlock: null });
+        },
+
+        markIntroSeen() {
+          set({ hasSeenIntro: true });
         },
 
         // ── Derived ────────────────────────────────────────────
@@ -768,8 +892,37 @@ export const useStore = create<StoreState>()(
       };
     },
     {
-      name: 'finapp-v1',
+      name: 'finapp-v2',
+      version: 2,
       storage: createJSONStorage(() => safeStorage),
+      // Migrate old single-character saves: seed the companion map from the
+      // top-level Kasumi fields, keep Kasumi unlocked, leave Mira locked.
+      migrate: (persisted: any, fromVersion: number) => {
+        if (!persisted) return persisted;
+        if (fromVersion < 2) {
+          persisted.activeCharacterId = 'kasumi';
+          persisted.unlockedCharacterIds = ['kasumi'];
+          persisted.companions = {
+            kasumi: {
+              affection: persisted.affection ?? 0,
+              hasMet: persisted.hasMet ?? false,
+              lastTierKey: persisted.lastTierKey ?? 'stranger',
+              currentMood: 'neutral',
+              currentEvent: 'idle',
+              currentLine: '',
+              moodExpiresAt: null,
+            },
+            mira: {
+              affection: 0, hasMet: false, lastTierKey: 'stranger',
+              currentMood: 'neutral', currentEvent: 'idle', currentLine: '', moodExpiresAt: null,
+            },
+          };
+          // Existing players are already mid-app — don't show them the
+          // "you just moved in" opening.
+          persisted.hasSeenIntro = true;
+        }
+        return persisted;
+      },
       partialize: state => ({
         transactions: state.transactions,
         xp: state.xp,
@@ -779,11 +932,16 @@ export const useStore = create<StoreState>()(
         // Saving-streak persistence
         savingStreak: state.savingStreak,
         lastSavingDate: state.lastSavingDate,
-        // Kasumi persistence — keep affection + hasMet across sessions,
-        // but let the transient mood/line reset on each launch.
+        // Companion persistence — active character's progress + the
+        // saved map of all characters + which are unlocked. Transient
+        // mood/line resets on launch.
         affection: state.affection,
         hasMet: state.hasMet,
         lastTierKey: state.lastTierKey,
+        activeCharacterId: state.activeCharacterId,
+        unlockedCharacterIds: state.unlockedCharacterIds,
+        companions: state.companions,
+        hasSeenIntro: state.hasSeenIntro,
         // Achievement persistence
         unlockedAchievementIds: state.unlockedAchievementIds,
         // Shop & currency persistence
