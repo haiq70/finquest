@@ -233,6 +233,12 @@ const SCRIPT: ScriptTable = {
       "I love you too much to fake a smile through this. We need to rebalance.",
     ],
   },
+
+  // Transient lines are set directly by the store (shop buy / item use),
+  // so this pool stays empty — it just satisfies the ScriptTable shape.
+  reaction: {
+    stranger: [], acquaintance: [], friend: [], close: [], soulmate: [],
+  },
 };
 
 // Interactive choice prompts — warm, earnest. Replies that show care,
@@ -288,6 +294,27 @@ const CHOICE_PROMPTS: import('./types').ChoicePrompt[] = [
   },
 ];
 
+// Reactions to spending earned coins in the shop — warm, encouraging,
+// a little pleased that the discipline is paying for something nice.
+const PURCHASE_LINES: string[] = [
+  "Spending the coins you earned? That's allowed, you know. Enjoy it.",
+  "Ooh, a little treat. You earned every one of those — go on.",
+  "Good pick. I had a feeling you'd reach for that one.",
+  "Look at you, investing in us. I'm not complaining.",
+  "Treating yourself? About time. You've been so steady lately.",
+  "A reward you saved for is a reward earned twice. Enjoy it.",
+  "Mm, I approve. Spend a little, keep the habit — that's balance.",
+];
+
+// Reactions to activating a consumable (a boost / "date" beginning now).
+const USE_LINES: string[] = [
+  "Putting that to use? Good. Let's make the most of it together.",
+  "A little boost — smart timing. The clock's running now.",
+  "Mm, I like the initiative. Go on, make these hours count.",
+  "Activated. Let's not waste a minute of it, you and me.",
+  "Good call. Strike while it's warm — I'm right here with you.",
+];
+
 export const KASUMI: CharacterDef = {
   id: 'kasumi',
   name: 'Kasumi',
@@ -295,11 +322,16 @@ export const KASUMI: CharacterDef = {
   blurb: 'Calm, steady, quietly encouraging. Your patient second opinion on money.',
   accent: '#a855f7',
   portraits: {
-    neutral: require('../../assets/images/kasumi/neutral.png'),
-    happy:   require('../../assets/images/kasumi/happy.jpeg'),
-    sad:     require('../../assets/images/kasumi/sad.jpeg'),
+    neutral:   require('../../assets/images/kasumi/neutral.png'),
+    happy:     require('../../assets/images/kasumi/happy.jpeg'),
+    sad:       require('../../assets/images/kasumi/sad.jpeg'),
+    // No dedicated "surprised" art yet — reuse the happy sprite so item-use
+    // reactions read as positive. Drop a surprised.* asset here to upgrade.
+    surprised: require('../../assets/images/kasumi/happy.jpeg'),
   },
   script: SCRIPT,
+  purchaseLines: PURCHASE_LINES,
+  useLines: USE_LINES,
   choicePrompts: CHOICE_PROMPTS,
   unlockedByDefault: true,
 };

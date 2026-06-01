@@ -15,7 +15,7 @@ import { EmptyState, PrimaryButton, SectionTitle } from '../../src/components';
 import { ScreenBackground } from '../../src/components/Glass';
 import { useStore } from '../../src/store/useStore';
 import { Colors, FontWeight, Radius, Spacing } from '../../src/theme';
-import { fmtCurrency } from '../../src/utils/format';
+import { useMoney, useCurrencySymbol } from '../../src/utils/money';
 
 const GOAL_ICONS = ['🏖️', '💻', '🛡️', '🚗', '🏠', '📚', '💍', '✈️', '🎮', '🏋️'];
 const GOAL_COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444', '#ec4899'];
@@ -25,6 +25,8 @@ export default function GoalsScreen() {
   const addGoal         = useStore(s => s.addGoal);
   const deleteGoal      = useStore(s => s.deleteGoal);
   const contributeToGoal= useStore(s => s.contributeToGoal);
+  const fmt             = useMoney();
+  const sym             = useCurrencySymbol();
 
   const [addVisible, setAddVisible]   = useState(false);
   const [contribId, setContribId]     = useState<string | null>(null);
@@ -89,7 +91,7 @@ export default function GoalsScreen() {
                   <View style={styles.goalInfo}>
                     <Text style={styles.goalName}>{goal.name}</Text>
                     <Text style={styles.goalAmts}>
-                      {fmtCurrency(goal.saved)} saved of {fmtCurrency(goal.target)}
+                      {fmt(goal.saved)} saved of {fmt(goal.target)}
                     </Text>
                   </View>
                   <Text style={[styles.goalPct, { color: goal.color }]}>
@@ -100,7 +102,7 @@ export default function GoalsScreen() {
                   <View style={[styles.goalFill, { width: `${Math.round(pct * 100)}%` as any, backgroundColor: goal.color }]} />
                 </View>
                 {pct < 1 && (
-                  <Text style={styles.goalRemaining}>{fmtCurrency(remaining)} remaining</Text>
+                  <Text style={styles.goalRemaining}>{fmt(remaining)} remaining</Text>
                 )}
                 {pct >= 1 && (
                   <Text style={[styles.goalRemaining, { color: Colors.income, fontWeight: FontWeight.semibold }]}>
@@ -140,7 +142,7 @@ export default function GoalsScreen() {
           <View style={styles.sheet}>
             <View style={styles.handle} />
             <Text style={styles.sheetTitle}>Contribute to {contribGoal?.name}</Text>
-            <Text style={styles.fieldLabel}>Amount (€)</Text>
+            <Text style={styles.fieldLabel}>Amount ({sym})</Text>
             <TextInput
               style={styles.input}
               value={contribAmt}
@@ -166,7 +168,7 @@ export default function GoalsScreen() {
             <Text style={styles.fieldLabel}>Name</Text>
             <TextInput style={styles.input} value={gName} onChangeText={setGName} placeholder="e.g. New Laptop" placeholderTextColor={Colors.textMuted} />
 
-            <Text style={styles.fieldLabel}>Target amount (€)</Text>
+            <Text style={styles.fieldLabel}>Target amount ({sym})</Text>
             <TextInput style={styles.input} value={gTarget} onChangeText={setGTarget} placeholder="0.00" placeholderTextColor={Colors.textMuted} keyboardType="decimal-pad" />
 
             <Text style={styles.fieldLabel}>Icon</Text>

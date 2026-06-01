@@ -8,7 +8,8 @@ import { TransactionItem, EmptyState, SectionTitle } from '../../src/components'
 import { GlassCard, ScreenBackground } from '../../src/components/Glass';
 import AddTransactionModal from '../../src/components/AddTransactionModal';
 import { Colors, Spacing, Radius, FontWeight } from '../../src/theme';
-import { groupByDate, fmtCurrency } from '../../src/utils/format';
+import { groupByDate } from '../../src/utils/format';
+import { useMoney } from '../../src/utils/money';
 
 export default function TransactionsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
@@ -17,6 +18,7 @@ export default function TransactionsScreen() {
   const transactions      = useStore(s => s.transactions);
   const deleteTransaction = useStore(s => s.deleteTransaction);
   const getTotals         = useStore(s => s.getTotals);
+  const fmt               = useMoney();
 
   const { income, expenses } = getTotals();
 
@@ -48,13 +50,13 @@ export default function TransactionsScreen() {
         <GlassCard variant="strong" style={styles.summaryCard} noPadding>
           <View style={styles.summaryInner}>
             <Text style={styles.summaryLabel}>Total In</Text>
-            <Text style={[styles.summaryVal, { color: Colors.income }]}>{fmtCurrency(income)}</Text>
+            <Text style={[styles.summaryVal, { color: Colors.income }]}>{fmt(income)}</Text>
           </View>
         </GlassCard>
         <GlassCard variant="strong" style={[styles.summaryCard, { marginHorizontal: Spacing.sm }]} noPadding>
           <View style={styles.summaryInner}>
             <Text style={styles.summaryLabel}>Total Out</Text>
-            <Text style={[styles.summaryVal, { color: Colors.expense }]}>{fmtCurrency(expenses)}</Text>
+            <Text style={[styles.summaryVal, { color: Colors.expense }]}>{fmt(expenses)}</Text>
           </View>
         </GlassCard>
         <GlassCard variant="strong" style={styles.summaryCard} noPadding>

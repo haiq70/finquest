@@ -10,18 +10,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenBackground } from '../../src/components/Glass';
 import {
   ITEM_TYPE_ICONS,
   ITEM_TYPE_LABELS,
   SHOP_ITEMS,
-  SHOP_ITEM_MAP,
   SHOP_RARITY_COLORS,
-  type AvatarSlot,
+  effectSummary,
   type ShopItem,
   type ShopItemType,
 } from '../../src/shop/shopCatalogue';
 import { useStore } from '../../src/store/useStore';
-import { ScreenBackground } from '../../src/components/Glass';
 import { Colors, FontWeight, Radius, Spacing } from '../../src/theme';
 
 // ── Palette ───────────────────────────────────────────────────────────
@@ -37,20 +36,13 @@ const P = {
   coinText:'#b45309',
 };
 
-const SLOT_LABELS: Record<AvatarSlot, string> = {
-  head: 'Head', background: 'Background', badge: 'Badge', outfit: 'Outfit',
-};
-
 type FilterTab = 'all' | ShopItemType;
 const FILTER_TABS: Array<{ key: FilterTab; label: string }> = [
-  { key: 'all',              label: 'All' },
-  { key: 'streak_freeze',    label: '🧊 Freezes' },
-  { key: 'xp_booster',       label: '⚡ XP' },
-  { key: 'coin_magnet',      label: '🧲 Coins' },
-  { key: 'avatar_accessory', label: '🎨 Avatar' },
+  { key: 'all',           label: 'All' },
+  { key: 'streak_freeze', label: '🌂 Streaks' },
+  { key: 'xp_booster',    label: '💞 Dates' },
+  { key: 'coin_magnet',   label: '🪙 Fortune' },
 ];
-
-type SubScreen = 'shop' | 'inventory' | 'avatar';
 
 // ── Item detail modal — extracted to avoid IIFE in JSX ────────────────
 interface PreviewModalProps {
@@ -147,16 +139,11 @@ function PreviewModal({ item, coins, ownedItems, onClose, onBuy }: PreviewModalP
 export default function ShopScreen() {
   const coins          = useStore(st => st.coins);
   const ownedItems     = useStore(st => st.ownedItems);
-  const equippedItems  = useStore(st => st.equippedItems);
   const activeXpBoost  = useStore(st => st.activeXpBoost);
   const activeCoinBoost= useStore(st => st.activeCoinBoost);
   const streakFreezes  = useStore(st => st.streakFreezes);
   const purchaseItem   = useStore(st => st.purchaseItem);
-  const equipItem      = useStore(st => st.equipItem);
-  const unequipSlot    = useStore(st => st.unequipSlot);
-  const activateItem   = useStore(st => st.activateItem);
 
-  const [sub, setSub]         = useState<SubScreen>('shop');
   const [filter, setFilter]   = useState<FilterTab>('all');
   const [preview, setPreview] = useState<ShopItem | null>(null);
 
@@ -174,22 +161,6 @@ export default function ShopScreen() {
     }
     return rows;
   }, [filteredItems]);
-
-  const inventoryItems = useMemo(() =>
-    Object.entries(ownedItems)
-      .filter(([, qty]) => qty > 0)
-      .map(([id, qty]) => ({ item: SHOP_ITEM_MAP[id], qty }))
-      .filter((e): e is { item: ShopItem; qty: number } => !!e.item),
-    [ownedItems],
-  );
-
-  const avatarAccessories = useMemo(() =>
-    Object.entries(ownedItems)
-      .filter(([id, qty]) => qty > 0 && SHOP_ITEM_MAP[id]?.type === 'avatar_accessory')
-      .map(([id]) => SHOP_ITEM_MAP[id])
-      .filter((i): i is ShopItem => !!i),
-    [ownedItems],
-  );
 
   const boostLabel = useMemo(() => {
     const now = Date.now();
@@ -227,17 +198,6 @@ export default function ShopScreen() {
     );
   }
 
-  function handleActivate(item: ShopItem) {
-    const detail =
-      item.type === 'xp_booster'   ? `${item.xpMultiplier}× XP for ${item.durationHours}h.` :
-      item.type === 'coin_magnet'   ? `+${Math.round((item.coinBonus ?? 0) * 100)}% coins for ${item.durationHours}h.` :
-      'Use this item?';
-    Alert.alert(`Use ${item.name}?`, detail, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Activate', onPress: () => activateItem(item.id) },
-    ]);
-  }
-
   // ── Render ────────────────────────────────────────────────────────
   return (
     <ScreenBackground>
@@ -270,25 +230,9 @@ export default function ShopScreen() {
         </View>
       )}
 
-      {/* Sub-screen tab switcher */}
-      <View style={s.subTabs}>
-        {(['shop', 'inventory', 'avatar'] as SubScreen[]).map(sc => (
-          <TouchableOpacity
-            key={sc}
-            style={[s.subTab, sub === sc && s.subTabOn]}
-            onPress={() => setSub(sc)}
-          >
-            <Text style={[s.subTabTxt, sub === sc && s.subTabTxtOn]}>
-              {sc === 'shop' ? '🛒 Shop' : sc === 'inventory' ? '🎒 Bag' : '🎨 Avatar'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       {/* ── SHOP ──────────────────────────────────────────────── */}
-      {sub === 'shop' && (
-        // flex:1 here gives this View all remaining height so ScrollView works
-        <View style={s.subScreen}>
+      {/* flex:1 here gives this View all remaining height so ScrollView works */}
+      <View style={s.subScreen}>
           {/* Category filter pills */}
           <ScrollView
             horizontal
@@ -332,6 +276,9 @@ export default function ShopScreen() {
                       <Text style={[s.cardRarity, { color: rc.text }]}>
                         {item.rarity.toUpperCase()}
                       </Text>
+                      <Text style={s.cardEffect} numberOfLines={2}>
+                        {effectSummary(item)}
+                      </Text>
                       <View style={s.cardFooter}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                           <Image source={require('../../assets/images/ui/coin.png')} style={s.coinIconSm} />
@@ -360,135 +307,7 @@ export default function ShopScreen() {
               </View>
             )}
           </ScrollView>
-        </View>
-      )}
-
-      {/* ── INVENTORY ─────────────────────────────────────────── */}
-      {sub === 'inventory' && (
-        <View style={s.subScreen}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.invList}>
-            {inventoryItems.length === 0 ? (
-              <View style={s.emptyBox}>
-                <Text style={s.emptyIcon}>🎒</Text>
-                <Text style={s.emptyTitle}>Bag is empty</Text>
-                <Text style={s.emptySub}>Buy items from the shop to fill it up.</Text>
-              </View>
-            ) : (
-              inventoryItems.map(({ item, qty }) => {
-                const rc = SHOP_RARITY_COLORS[item.rarity];
-                const isConsumable = item.type !== 'avatar_accessory';
-                const isEquipped = !!(item.slot && equippedItems[item.slot] === item.id);
-                return (
-                  <View key={item.id} style={[s.invCard, { borderColor: rc.border }]}>
-                    <View style={[s.invGlow, { backgroundColor: rc.glow }]} />
-                    <View style={s.invRow}>
-                      <Text style={s.invIcon}>{item.icon}</Text>
-                      <View style={s.invInfo}>
-                        <Text style={s.invName}>{item.name}</Text>
-                        <Text style={[s.invType, { color: rc.text }]}>
-                          {ITEM_TYPE_LABELS[item.type]}
-                        </Text>
-                        <Text style={s.invDesc} numberOfLines={2}>{item.description}</Text>
-                      </View>
-                      <View style={[s.invQtyBadge, { backgroundColor: rc.text }]}>
-                        <Text style={s.invQtyTxt}>×{qty}</Text>
-                      </View>
-                    </View>
-                    <View style={s.invActions}>
-                      {isConsumable && (
-                        <TouchableOpacity style={s.invBtn} onPress={() => handleActivate(item)}>
-                          <Text style={s.invBtnTxt}>Use</Text>
-                        </TouchableOpacity>
-                      )}
-                      {item.type === 'avatar_accessory' && (
-                        <TouchableOpacity
-                          style={[s.invBtn, isEquipped && s.invBtnOn]}
-                          onPress={() => isEquipped ? unequipSlot(item.slot!) : equipItem(item.id)}
-                        >
-                          <Text style={[s.invBtnTxt, isEquipped && { color: '#fff' }]}>
-                            {isEquipped ? '✓ Equipped' : 'Equip'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* ── AVATAR ────────────────────────────────────────────── */}
-      {sub === 'avatar' && (
-        <View style={s.subScreen}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.avatarPage}>
-            {/* Live preview */}
-            <View style={s.avatarPreview}>
-              {equippedItems.background && (
-                <View style={s.avatarBgLayer}>
-                  <Text style={s.avatarBgEmoji}>{SHOP_ITEM_MAP[equippedItems.background]?.icon}</Text>
-                </View>
-              )}
-              <View style={s.avatarBody}>
-                {equippedItems.head && (
-                  <Text style={s.avatarHeadEmoji}>{SHOP_ITEM_MAP[equippedItems.head]?.icon}</Text>
-                )}
-                <Text style={s.avatarFace}>👧</Text>
-                {equippedItems.outfit && (
-                  <Text style={s.avatarOutfitEmoji}>{SHOP_ITEM_MAP[equippedItems.outfit]?.icon}</Text>
-                )}
-              </View>
-              {equippedItems.badge && (
-                <View style={s.avatarBadgePin}>
-                  <Text style={s.avatarBadgeEmoji}>{SHOP_ITEM_MAP[equippedItems.badge]?.icon}</Text>
-                </View>
-              )}
-              <Text style={s.avatarName}>Kasumi</Text>
-            </View>
-
-            {/* Slot pickers */}
-            {(['head', 'background', 'badge', 'outfit'] as AvatarSlot[]).map(slot => {
-              const equipped = equippedItems[slot] ? SHOP_ITEM_MAP[equippedItems[slot]!] : null;
-              const options = avatarAccessories.filter(a => a.slot === slot);
-              return (
-                <View key={slot} style={s.slotSection}>
-                  <Text style={s.slotTitle}>{SLOT_LABELS[slot]}</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={s.slotRow}>
-                    {/* None chip */}
-                    <TouchableOpacity
-                      style={[s.slotChip, !equipped && s.slotChipOn]}
-                      onPress={() => unequipSlot(slot)}
-                    >
-                      <Text style={s.slotChipIcon}>✕</Text>
-                      <Text style={s.slotChipLabel}>None</Text>
-                    </TouchableOpacity>
-                    {options.map(item => {
-                      const on = equippedItems[slot] === item.id;
-                      return (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={[s.slotChip, on && s.slotChipOn]}
-                          onPress={() => on ? unequipSlot(slot) : equipItem(item.id)}
-                        >
-                          <Text style={s.slotChipIcon}>{item.icon}</Text>
-                          <Text style={s.slotChipLabel} numberOfLines={1}>{item.name}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                    {options.length === 0 && (
-                      <Text style={s.slotEmpty}>
-                        No {SLOT_LABELS[slot].toLowerCase()} items yet
-                      </Text>
-                    )}
-                  </ScrollView>
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
+      </View>
 
       {/* Detail / purchase modal */}
       <PreviewModal
@@ -533,15 +352,7 @@ const s = StyleSheet.create({
                 borderWidth: 0.5, borderColor: '#bfdbfe' },
   freezeText: { fontSize: 12, color: '#1d4ed8', fontWeight: FontWeight.semibold },
 
-  // Sub-screen switcher
-  subTabs:    { flexDirection: 'row', marginHorizontal: Spacing.lg, marginBottom: Spacing.sm,
-                backgroundColor: '#f3e8ff', borderRadius: Radius.lg, padding: 4 },
-  subTab:     { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: Radius.md },
-  subTabOn:   { backgroundColor: P.accent },
-  subTabTxt:  { fontSize: 12, fontWeight: FontWeight.semibold, color: P.textSub },
-  subTabTxtOn:{ color: '#fff' },
-
-  // Shared sub-screen wrapper — MUST be flex:1 so it fills remaining height
+  // Shop body wrapper — MUST be flex:1 so the grid ScrollView fills height
   subScreen:  { flex: 1 },
 
   // Filter pills — a horizontal ScrollView inside a flex:1 parent stretches
@@ -572,7 +383,12 @@ const s = StyleSheet.create({
                   textAlign: 'center', paddingHorizontal: 8, marginBottom: 3,
                   minHeight: 34 },
   cardRarity:   { fontSize: 9, fontWeight: FontWeight.bold, textAlign: 'center',
-                  letterSpacing: 0.6, marginBottom: Spacing.sm },
+                  letterSpacing: 0.6, marginBottom: 5 },
+  // At-a-glance effect line so the user knows what the item does without
+  // opening the detail sheet. Fixed minHeight keeps both cards in a row aligned.
+  cardEffect:   { fontSize: 11, fontWeight: FontWeight.medium, color: P.textSub,
+                  textAlign: 'center', paddingHorizontal: 8, marginBottom: Spacing.sm,
+                  lineHeight: 14, minHeight: 28 },
   cardFooter:   { flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
                   gap: 6, paddingHorizontal: 8 },
   cardPrice:    { fontSize: 13, fontWeight: FontWeight.bold, color: P.coinText },
@@ -585,54 +401,6 @@ const s = StyleSheet.create({
   emptyIcon:  { fontSize: 44, marginBottom: 12 },
   emptyTitle: { fontSize: 17, fontWeight: FontWeight.bold, color: P.text, marginBottom: 4 },
   emptySub:   { fontSize: 13, color: P.textSub, textAlign: 'center', paddingHorizontal: 40 },
-
-  // Inventory
-  invList:    { paddingHorizontal: Spacing.lg, paddingBottom: 40, paddingTop: 4 },
-  invCard:    { backgroundColor: P.card, borderRadius: Radius.lg, borderWidth: 1,
-                marginBottom: Spacing.sm, overflow: 'hidden' },
-  invGlow:    { height: 3, width: '100%' },
-  invRow:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
-  invIcon:    { fontSize: 28, lineHeight: 34, flexShrink: 0 },
-  invInfo:    { flex: 1 },
-  invName:    { fontSize: 14, fontWeight: FontWeight.semibold, color: P.text },
-  invType:    { fontSize: 11, fontWeight: FontWeight.medium, marginBottom: 2 },
-  invDesc:    { fontSize: 12, color: P.textSub, lineHeight: 16 },
-  invQtyBadge:{ borderRadius: Radius.full, width: 32, height: 32,
-                alignItems: 'center', justifyContent: 'center' },
-  invQtyTxt:  { color: '#fff', fontSize: 12, fontWeight: FontWeight.bold },
-  invActions: { flexDirection: 'row', paddingHorizontal: Spacing.md,
-                paddingBottom: Spacing.md, gap: Spacing.sm },
-  invBtn:     { flex: 1, paddingVertical: 9, borderRadius: Radius.md,
-                borderWidth: 1, borderColor: P.accent, alignItems: 'center' },
-  invBtnOn:   { backgroundColor: P.accent },
-  invBtnTxt:  { fontSize: 13, color: P.accent, fontWeight: FontWeight.semibold },
-
-  // Avatar
-  avatarPage:     { paddingHorizontal: Spacing.lg, paddingBottom: 40, paddingTop: 4 },
-  avatarPreview:  { alignItems: 'center', backgroundColor: P.card, borderRadius: Radius.xl,
-                    borderWidth: 1, borderColor: P.border, paddingVertical: Spacing.xl,
-                    marginBottom: Spacing.lg, overflow: 'hidden', minHeight: 170 },
-  avatarBgLayer:  { ...StyleSheet.absoluteFillObject, alignItems: 'center',
-                    justifyContent: 'center', opacity: 0.15 },
-  avatarBgEmoji:  { fontSize: 90 },
-  avatarBody:     { alignItems: 'center', marginBottom: 8 },
-  avatarHeadEmoji:{ fontSize: 28, marginBottom: -4 },
-  avatarFace:     { fontSize: 60 },
-  avatarOutfitEmoji:{ fontSize: 24, marginTop: -6 },
-  avatarBadgePin: { position: 'absolute', top: 10, right: 18 },
-  avatarBadgeEmoji:{ fontSize: 24 },
-  avatarName:     { fontSize: 15, fontWeight: FontWeight.bold, color: P.text },
-
-  slotSection:  { marginBottom: Spacing.lg },
-  slotTitle:    { fontSize: 12, fontWeight: FontWeight.bold, color: P.textSub,
-                  textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: Spacing.sm },
-  slotRow:      { gap: Spacing.sm },
-  slotChip:     { alignItems: 'center', width: 78, backgroundColor: P.card,
-                  borderRadius: Radius.md, borderWidth: 1, borderColor: P.border, padding: 9 },
-  slotChipOn:   { backgroundColor: '#f3e8ff', borderColor: P.accent },
-  slotChipIcon: { fontSize: 22, marginBottom: 4, lineHeight: 28 },
-  slotChipLabel:{ fontSize: 10, color: P.textSub, fontWeight: FontWeight.medium, textAlign: 'center' },
-  slotEmpty:    { fontSize: 12, color: P.textMut, paddingVertical: 16, alignSelf: 'center' },
 
   // Modal
   modalBg:      { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },

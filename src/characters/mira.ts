@@ -204,6 +204,12 @@ const SCRIPT: ScriptTable = {
       "I love you too much to be a brat about this one. We're rebalancing this together and I'm not taking no.",
     ],
   },
+
+  // Transient lines are set directly by the store (shop buy / item use),
+  // so this pool stays empty — it just satisfies the ScriptTable shape.
+  reaction: {
+    stranger: [], acquaintance: [], friend: [], close: [], soulmate: [],
+  },
 };
 
 // Interactive choice prompts — bratty, sarcastic, secretly invested.
@@ -259,17 +265,43 @@ const CHOICE_PROMPTS: import('./types').ChoicePrompt[] = [
   },
 ];
 
+// Reactions to spending coins in the shop — mock the spending, but the
+// mockery is the affection. She noticed. She always notices.
+const PURCHASE_LINES: string[] = [
+  "Oh, NOW you spend money? On THIS? ...Fine. It's a little cute. Don't tell anyone I said that.",
+  "Blowing your hard-earned coins already. Typical. ...Looks good on you though. Ugh.",
+  "Look at moneybags over here. One purchase and you think you're rich. Adorable.",
+  "You bought a thing. I'm contractually obligated to mock you. But, like, nice taste I guess.",
+  "Spending the coins I helped you earn? The AUDACITY. ...Keep it. You earned it, broke-y.",
+  "Wow, impulse buy of the century. ...Okay it's not the worst. Don't let it go to your head.",
+  "Treating yourself? Gross. Sentimental. ...I'm a little proud. Forget I said that.",
+];
+
+// Reactions to activating a consumable — mocking, but paying attention.
+const USE_LINES: string[] = [
+  "Oh, breaking out the good stuff? Look at you, strategizing. ...Don't waste it, broke-y.",
+  "Using an item like you actually planned ahead. Who ARE you. Go on then.",
+  "Fine, fine, activate the thing. Clock's ticking — try to keep up.",
+  "Ooh, fancy. Spending your little treats. ...It's working. Don't get smug.",
+  "Cracking that open NOW? Bold. Better earn while it lasts, genius.",
+];
+
 export const MIRA: CharacterDef = {
   id: 'mira',
   name: 'Mira',
   blurb: 'Bratty, sarcastic, and a menace. Insults you constantly. The meanness is the affection.',
   accent: '#c026d3',
   portraits: {
-    neutral: require('../../assets/images/mira/neutral.jpg'),
-    happy:   require('../../assets/images/mira/happy.jpg'),
-    sad:     require('../../assets/images/mira/sad.jpg'),
+    neutral:   require('../../assets/images/mira/neutral.jpg'),
+    happy:     require('../../assets/images/mira/happy.jpg'),
+    sad:       require('../../assets/images/mira/sad.jpg'),
+    // No dedicated "surprised" art yet — reuse happy so item-use reactions
+    // read as positive. Drop a surprised.* asset here to upgrade.
+    surprised: require('../../assets/images/mira/happy.jpg'),
   },
   script: SCRIPT,
+  purchaseLines: PURCHASE_LINES,
+  useLines: USE_LINES,
   choicePrompts: CHOICE_PROMPTS,
   unlockedByDefault: false,
 };

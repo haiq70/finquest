@@ -1,16 +1,19 @@
 // ────────────────────────────────────────────────────────────────────
 // Shop catalogue
 //
-// ShopItem types:
-//   avatar_accessory  — cosmetic item that can be equipped on Kasumi
-//   xp_booster        — temporarily multiplies all XP earned
-//   streak_freeze     — consumes instead of breaking a streak on a
-//                       missed day (Duolingo mechanic)
-//   coin_magnet       — earns bonus coins for a period
+// Everything here is a *gameplay modifier* — there are no cosmetics.
+// Each item is themed around the finance-dating premise: spend the
+// FinCoins you earn by saving on little gestures and date nights that
+// move your progress (and your companion) forward.
+//
+// ShopItemType:
+//   streak_freeze  — covers a missed day so your streak survives
+//                    (used automatically, Duolingo-style)
+//   xp_booster     — a "date" that temporarily multiplies all XP earned
+//   coin_magnet    — a token of good fortune: bonus coins for a period
 // ────────────────────────────────────────────────────────────────────
 
 export type ShopItemType =
-  | 'avatar_accessory'
   | 'xp_booster'
   | 'streak_freeze'
   | 'coin_magnet';
@@ -33,26 +36,21 @@ export interface ShopItem {
   xpMultiplier?: number;
   // For coin magnets: bonus percentage (0.5 = +50% coins)
   coinBonus?: number;
-  // For avatar accessories: which slot this equips to
-  slot?: AvatarSlot;
-  // For accessories: CSS-like colour hint used to tint the badge
-  tint?: string;
   // Max owned at once (streak freezes cap at 2 like Duolingo)
   maxOwned?: number;
 }
-
-export type AvatarSlot = 'head' | 'background' | 'badge' | 'outfit';
 
 // ── Catalogue ────────────────────────────────────────────────────────
 
 export const SHOP_ITEMS: ShopItem[] = [
 
-  // ── Streak Freezes ───────────────────────────────────────────────
+  // ── Streak Savers ────────────────────────────────────────────────
+  // Reschedule, don't cancel — protect the daily rhythm of showing up.
   {
     id: 'streak_freeze_1',
-    name: 'Streak Freeze',
-    description: 'Protects your streak for one missed day. Used automatically when you skip a day.',
-    icon: '🧊',
+    name: 'Rain Check',
+    description: 'Reschedule, don\'t cancel. Covers one missed day so your streak stays intact — used automatically when you skip.',
+    icon: '🌂',
     type: 'streak_freeze',
     rarity: 'common',
     price: 200,
@@ -61,9 +59,9 @@ export const SHOP_ITEMS: ShopItem[] = [
   },
   {
     id: 'streak_freeze_3',
-    name: 'Freeze Pack',
-    description: 'Three streak freezes at a discount. Stack up before a busy week.',
-    icon: '❄️',
+    name: 'Love Letters',
+    description: 'Three rain checks at a discount. Stay close through a busy week without breaking your streak.',
+    icon: '💌',
     type: 'streak_freeze',
     rarity: 'rare',
     price: 500,
@@ -71,12 +69,13 @@ export const SHOP_ITEMS: ShopItem[] = [
     maxOwned: 2,
   },
 
-  // ── XP Boosters ──────────────────────────────────────────────────
+  // ── Date Nights ──────────────────────────────────────────────────
+  // Quality time deepens the bond → more XP while it lasts.
   {
     id: 'xp_boost_1h',
-    name: 'XP Rush',
-    description: 'All XP earned is doubled for 1 hour.',
-    icon: '⚡',
+    name: 'Coffee Date',
+    description: 'An hour together over coffee — double XP for 1 hour.',
+    icon: '☕',
     type: 'xp_booster',
     rarity: 'common',
     price: 300,
@@ -86,9 +85,9 @@ export const SHOP_ITEMS: ShopItem[] = [
   },
   {
     id: 'xp_boost_24h',
-    name: 'XP Surge',
-    description: 'All XP earned is doubled for 24 hours — perfect for a big saving day.',
-    icon: '🌟',
+    name: 'Day Out Together',
+    description: 'A whole day side by side — double XP for 24 hours. Perfect for a big saving push.',
+    icon: '💞',
     type: 'xp_booster',
     rarity: 'rare',
     price: 750,
@@ -98,9 +97,9 @@ export const SHOP_ITEMS: ShopItem[] = [
   },
   {
     id: 'xp_boost_mega',
-    name: 'MEGA Boost',
-    description: 'Triple XP for 6 hours. Kasumi is very impressed.',
-    icon: '💥',
+    name: 'Candlelit Dinner',
+    description: 'An unforgettable evening — triple XP for 6 hours. Her heart is racing.',
+    icon: '🍷',
     type: 'xp_booster',
     rarity: 'epic',
     price: 1500,
@@ -109,119 +108,19 @@ export const SHOP_ITEMS: ShopItem[] = [
     xpMultiplier: 3.0,
   },
 
-  // ── Coin Magnets ─────────────────────────────────────────────────
+  // ── Good Fortune ─────────────────────────────────────────────────
+  // A little luck stretches every coin you earn.
   {
     id: 'coin_magnet_24h',
-    name: 'Coin Magnet',
-    description: 'Earn 50% more coins on all actions for 24 hours.',
-    icon: '🧲',
+    name: 'Wishing Coin',
+    description: 'A coin tossed in the fountain, wishing you well — earn 50% more FC for 24 hours.',
+    icon: '🪙',
     type: 'coin_magnet',
     rarity: 'rare',
     price: 600,
     uses: 1,
     durationHours: 24,
     coinBonus: 0.5,
-  },
-
-  // ── Avatar Accessories ───────────────────────────────────────────
-  {
-    id: 'acc_halo',
-    name: 'Golden Halo',
-    description: 'A halo that glows when Kasumi is happy.',
-    icon: '😇',
-    type: 'avatar_accessory',
-    rarity: 'rare',
-    price: 800,
-    slot: 'head',
-    tint: '#f59e0b',
-  },
-  {
-    id: 'acc_crown',
-    name: 'Crown',
-    description: 'Reserved for those who take saving seriously.',
-    icon: '👑',
-    type: 'avatar_accessory',
-    rarity: 'epic',
-    price: 1800,
-    slot: 'head',
-    tint: '#f59e0b',
-  },
-  {
-    id: 'acc_stars',
-    name: 'Star Shower',
-    description: 'Animated star background for Kasumi\'s card.',
-    icon: '✨',
-    type: 'avatar_accessory',
-    rarity: 'common',
-    price: 350,
-    slot: 'background',
-    tint: '#a78bfa',
-  },
-  {
-    id: 'acc_sakura',
-    name: 'Sakura Garden',
-    description: 'Cherry blossom background. She loves this one.',
-    icon: '🌸',
-    type: 'avatar_accessory',
-    rarity: 'rare',
-    price: 900,
-    slot: 'background',
-    tint: '#ec4899',
-  },
-  {
-    id: 'acc_galaxy',
-    name: 'Galaxy',
-    description: 'A deep purple galaxy surrounds Kasumi.',
-    icon: '🌌',
-    type: 'avatar_accessory',
-    rarity: 'epic',
-    price: 2000,
-    slot: 'background',
-    tint: '#7c3aed',
-  },
-  {
-    id: 'acc_badge_gold',
-    name: 'Gold Badge',
-    description: 'A shimmering gold badge on Kasumi\'s card.',
-    icon: '🥇',
-    type: 'avatar_accessory',
-    rarity: 'common',
-    price: 400,
-    slot: 'badge',
-    tint: '#f59e0b',
-  },
-  {
-    id: 'acc_badge_diamond',
-    name: 'Diamond Badge',
-    description: 'Extremely rare. Shows true dedication.',
-    icon: '💎',
-    type: 'avatar_accessory',
-    rarity: 'legendary',
-    price: 5000,
-    slot: 'badge',
-    tint: '#06b6d4',
-  },
-  {
-    id: 'acc_outfit_kimono',
-    name: 'Kimono',
-    description: 'A traditional kimono for Kasumi. She is honoured.',
-    icon: '👘',
-    type: 'avatar_accessory',
-    rarity: 'epic',
-    price: 2500,
-    slot: 'outfit',
-    tint: '#ec4899',
-  },
-  {
-    id: 'acc_outfit_casual',
-    name: 'Casual Look',
-    description: 'She says she dressed up for you. She did.',
-    icon: '🧥',
-    type: 'avatar_accessory',
-    rarity: 'rare',
-    price: 1000,
-    slot: 'outfit',
-    tint: '#8b5cf6',
   },
 ];
 
@@ -238,15 +137,35 @@ export const SHOP_RARITY_COLORS: Record<ShopItemRarity, { bg: string; border: st
 };
 
 export const ITEM_TYPE_LABELS: Record<ShopItemType, string> = {
-  avatar_accessory: 'Avatar',
-  xp_booster:       'XP Booster',
-  streak_freeze:    'Streak Freeze',
-  coin_magnet:      'Coin Magnet',
+  xp_booster:       'Date Night',
+  streak_freeze:    'Streak Saver',
+  coin_magnet:      'Good Fortune',
 };
 
 export const ITEM_TYPE_ICONS: Record<ShopItemType, string> = {
-  avatar_accessory: '🎨',
-  xp_booster:       '⚡',
-  streak_freeze:    '🧊',
-  coin_magnet:      '🧲',
+  xp_booster:       '💞',
+  streak_freeze:    '🌂',
+  coin_magnet:      '🪙',
 };
+
+// A compact, at-a-glance summary of what an item actually does, derived
+// from its mechanical fields. Shown on the shop grid cards so players
+// don't have to open the detail sheet to understand an item.
+export function effectSummary(item: ShopItem): string {
+  switch (item.type) {
+    case 'streak_freeze': {
+      const days = item.uses ?? 1;
+      return `Covers ${days} missed day${days > 1 ? 's' : ''}`;
+    }
+    case 'xp_booster': {
+      const mult = item.xpMultiplier ?? 1;
+      return `${mult}× XP · ${item.durationHours}h`;
+    }
+    case 'coin_magnet': {
+      const pct = Math.round((item.coinBonus ?? 0) * 100);
+      return `+${pct}% FC · ${item.durationHours}h`;
+    }
+    default:
+      return '';
+  }
+}

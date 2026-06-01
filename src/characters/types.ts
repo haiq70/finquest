@@ -7,7 +7,7 @@
 // *content* differs per character.
 // ────────────────────────────────────────────────────────────────────
 
-export type Mood = 'neutral' | 'happy' | 'sad';
+export type Mood = 'neutral' | 'happy' | 'sad' | 'surprised';
 
 export type RelationshipTier =
   | 'stranger'
@@ -50,7 +50,8 @@ export type DialogueEvent =
   | 'streak_broken'     // streak reset to 1 after >1 day gap
   | 'first_meeting'     // affection still 0 and never spoken to
   | 'tier_up'           // just moved into a new tier
-  | 'net_negative';     // persistent: expenses > income overall
+  | 'net_negative'      // persistent: expenses > income overall
+  | 'reaction';         // transient line set directly (shop buy / item use)
 
 export type ScriptTable = Record<DialogueEvent, Record<RelationshipTier, string[]>>;
 
@@ -68,6 +69,10 @@ export interface CharacterDef {
   portraits: Record<Mood, any>;
   /** Full dialogue script (event × tier). */
   script: ScriptTable;
+  /** In-voice one-liners reacting to a shop purchase. */
+  purchaseLines: string[];
+  /** In-voice one-liners reacting to activating/using a consumable. */
+  useLines: string[];
   /** Interactive choice prompts shown on income (random) and tier-up. */
   choicePrompts: ChoicePrompt[];
   /** If true, the player starts with this character unlocked. */

@@ -13,16 +13,18 @@ import { AFFECTION_MAX } from '../kasumi/affection';
 
 // Static requires so Metro can bundle them.
 const FACES: Record<Mood, any> = {
-  neutral: require('../../assets/images/kasumi/neutral.png'),
-  happy:   require('../../assets/images/kasumi/happy.jpeg'),
-  sad:     require('../../assets/images/kasumi/sad.jpeg'),
+  neutral:   require('../../assets/images/kasumi/neutral.png'),
+  happy:     require('../../assets/images/kasumi/happy.jpeg'),
+  sad:       require('../../assets/images/kasumi/sad.jpeg'),
+  surprised: require('../../assets/images/kasumi/happy.jpeg'),
 };
 
 // Mood badge icons (kawaii heart / sparkle / teardrop) shown on the portrait.
 const MOOD_ICONS: Record<Mood, any> = {
-  happy:   require('../../assets/images/ui/mood_happy.png'),
-  neutral: require('../../assets/images/ui/mood_neutral.png'),
-  sad:     require('../../assets/images/ui/mood_sad.png'),
+  happy:     require('../../assets/images/ui/mood_happy.png'),
+  neutral:   require('../../assets/images/ui/mood_neutral.png'),
+  sad:       require('../../assets/images/ui/mood_sad.png'),
+  surprised: require('../../assets/images/ui/mood_happy.png'),
 };
 
 const HEART_BTN     = require('../../assets/images/ui/heart_button.png');

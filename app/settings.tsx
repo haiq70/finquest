@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { useSoundSettings } from '../src/store/useSoundSettings';
+import { useStore } from '../src/store/useStore';
+import { CURRENCIES } from '../src/utils/currency';
 import { playTap } from '../src/utils/sound';
 
 const P = {
@@ -67,6 +69,9 @@ export default function SettingsScreen() {
     setSfxEnabled, setSfxVolume, setMusicEnabled, setMusicVolume,
   } = useSoundSettings();
 
+  const currency    = useStore(s => s.currency);
+  const setCurrency = useStore(s => s.setCurrency);
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
@@ -117,6 +122,29 @@ export default function SettingsScreen() {
 
         <Text style={styles.hint}>
           Music loops softly while you use the app. Sound effects play on taps and actions.
+        </Text>
+
+        {/* Currency section */}
+        <Text style={styles.sectionLabel}>CURRENCY</Text>
+        <View style={styles.card}>
+          <View style={styles.currencyGrid}>
+            {CURRENCIES.map((c) => {
+              const on = c.code === currency;
+              return (
+                <Pressable
+                  key={c.code}
+                  onPress={() => { setCurrency(c.code); playTap(); }}
+                  style={[styles.currencyChip, on && styles.currencyChipOn]}
+                >
+                  <Text style={[styles.currencySymbol, on && styles.currencyTextOn]}>{c.symbol}</Text>
+                  <Text style={[styles.currencyCode, on && styles.currencyTextOn]}>{c.code}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        <Text style={styles.hint}>
+          Changes the currency symbol shown across the app. Amounts aren't converted between currencies.
         </Text>
 
         {/* About section */}
@@ -208,4 +236,14 @@ const styles = StyleSheet.create({
   volPct: { fontSize: 12, color: P.textSecondary, fontWeight: '700', width: 42, textAlign: 'right' },
 
   hint: { fontSize: 12, color: P.textMuted, lineHeight: 17, marginTop: 4, marginBottom: 8, marginHorizontal: 4 },
+
+  currencyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  currencyChip: {
+    width: 66, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1, borderColor: P.border, backgroundColor: '#faf5ff',
+  },
+  currencyChipOn: { backgroundColor: P.accent, borderColor: P.accent },
+  currencySymbol: { fontSize: 18, fontWeight: '800', color: P.text },
+  currencyCode:   { fontSize: 10, fontWeight: '700', color: P.textMuted, marginTop: 2, letterSpacing: 0.5 },
+  currencyTextOn: { color: '#fff' },
 });

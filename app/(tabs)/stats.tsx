@@ -6,11 +6,12 @@ import { useStore } from '../../src/store/useStore';
 import { StatCard, SectionTitle, CategoryBar, XpBar } from '../../src/components';
 import { ScreenBackground } from '../../src/components/Glass';
 import { Colors, Spacing, Radius, FontWeight, XP_PER_LEVEL, type Category } from '../../src/theme';
-import { fmtCurrency } from '../../src/utils/format';
+import { useMoney } from '../../src/utils/money';
 
 const WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export default function StatsScreen() {
+  const fmt                 = useMoney();
   const xp                  = useStore(s => s.xp);
   const streak              = useStore(s => s.streak);
   const transactions        = useStore(s => s.transactions);
@@ -86,14 +87,14 @@ export default function StatsScreen() {
         <SectionTitle>This month</SectionTitle>
         <View style={styles.grid}>
           <View style={styles.gridRow}>
-            <StatCard label="Income" value={fmtCurrency(monthly.income)} accent={Colors.income} />
+            <StatCard label="Income" value={fmt(monthly.income)} accent={Colors.income} />
             <View style={{ width: Spacing.sm }} />
-            <StatCard label="Spent" value={fmtCurrency(monthly.expenses)} accent={Colors.expense} />
+            <StatCard label="Spent" value={fmt(monthly.expenses)} accent={Colors.expense} />
           </View>
           <View style={[styles.gridRow, { marginTop: Spacing.sm }]}>
-            <StatCard label="Saved" value={fmtCurrency(monthly.saved)} sub="income − expenses" />
+            <StatCard label="Saved" value={fmt(monthly.saved)} sub="income − expenses" />
             <View style={{ width: Spacing.sm }} />
-            <StatCard label="Avg/day" value={fmtCurrency(avgExpense)} sub="on days you spend" />
+            <StatCard label="Avg/day" value={fmt(avgExpense)} sub="on days you spend" />
           </View>
         </View>
 

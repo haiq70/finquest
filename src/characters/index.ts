@@ -34,6 +34,26 @@ export function pickLineFor(
   return pickLineFrom(getCharacter(id).script, event, tier, seed);
 }
 
+/** Pick a random in-voice reaction line for a shop purchase. */
+export function purchaseLineFor(id: CharacterId, seed?: number): string {
+  const lines = getCharacter(id).purchaseLines;
+  if (!lines || lines.length === 0) return '';
+  const idx = seed === undefined
+    ? Math.floor(Math.random() * lines.length)
+    : seed % lines.length;
+  return lines[idx];
+}
+
+/** Pick a random in-voice reaction line for using/activating an item. */
+export function useLineFor(id: CharacterId, seed?: number): string {
+  const lines = getCharacter(id).useLines;
+  if (!lines || lines.length === 0) return '';
+  const idx = seed === undefined
+    ? Math.floor(Math.random() * lines.length)
+    : seed % lines.length;
+  return lines[idx];
+}
+
 /** Pick an eligible choice prompt for a character at a given tier. */
 export function choicePromptFor(
   id: CharacterId,

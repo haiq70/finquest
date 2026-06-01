@@ -7,6 +7,7 @@ import { Colors, Spacing, Radius, FontWeight, EXPENSE_CATEGORIES, INCOME_CATEGOR
 import { useStore, type TxType } from '../store/useStore';
 import { PrimaryButton } from './index';
 import { playTap } from '../utils/sound';
+import { useCurrencySymbol } from '../utils/money';
 
 interface Props {
   visible: boolean;
@@ -15,6 +16,7 @@ interface Props {
 
 export default function AddTransactionModal({ visible, onClose }: Props) {
   const addTransaction = useStore(s => s.addTransaction);
+  const sym            = useCurrencySymbol();
 
   const [txType, setTxType]       = useState<TxType>('expense');
   const [amount, setAmount]       = useState('');
@@ -84,7 +86,7 @@ export default function AddTransactionModal({ visible, onClose }: Props) {
           </View>
 
           {/* Amount */}
-          <Text style={styles.fieldLabel}>Amount (€)</Text>
+          <Text style={styles.fieldLabel}>Amount ({sym})</Text>
           <TextInput
             style={styles.input}
             value={amount}

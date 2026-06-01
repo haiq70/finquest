@@ -7,6 +7,7 @@ import {
   XP_PER_LEVEL,
 } from '../theme';
 import { todayString, yesterdayString } from '../utils/format';
+import { DEFAULT_CURRENCY, type CurrencyCode } from '../utils/currency';
 import {
   AFFECTION_MAX,
   clampAffection,
@@ -23,6 +24,8 @@ import {
 } from '../kasumi/affection';
 import {
   pickLineFor,
+  purchaseLineFor,
+  useLineFor,
   choicePromptFor,
   tierFromAffection,
   getCharacter,
@@ -53,7 +56,6 @@ import {
   SHOP_ITEMS,
   SHOP_ITEM_MAP,
   type ShopItem,
-  type AvatarSlot,
 } from '../shop/shopCatalogue';
 import {
   coinsForTransaction,
@@ -189,10 +191,8 @@ interface StoreState {
   // ── Shop & Currency ───────────────────────────────────────────
   coins: number;                           // current FC balance
   totalCoinsEarned: number;                // lifetime total (for stats)
-  // Owned items: itemId → quantity (consumables) or 1 (accessories)
+  // Owned items: itemId → quantity (consumables)
   ownedItems: Record<string, number>;
-  // Equipped accessories per slot
-  equippedItems: Partial<Record<AvatarSlot, string>>;
   // Active timed effects
   activeXpBoost: { multiplier: number; expiresAt: number } | null;
   activeCoinBoost: { multiplier: number; expiresAt: number } | null;
@@ -204,13 +204,15 @@ interface StoreState {
   coinTxDate: string | null;   // date the count applies to (todayString)
   coinTxCount: number;         // coin-earning transactions logged that date
 
+  // ── Preferences ───────────────────────────────────────────────
+  currency: CurrencyCode;      // display currency (symbol only — no conversion)
+
   // Actions
   clearPendingAchievements: () => void;
   shiftPendingAchievement: () => void;
+  setCurrency: (code: CurrencyCode) => void;
   // Shop actions
   purchaseItem: (itemId: string) => { success: boolean; error?: string };
-  equipItem: (itemId: string) => void;
-  unequipSlot: (slot: AvatarSlot) => void;
   activateItem: (itemId: string) => void;   // activates consumables from inventory
   tickBoosts: () => void;                   // expire timed boosts
   clearLastCoinAward: () => void;
@@ -338,6 +340,20 @@ export const useStore = create<StoreState>()(
         });
       }
 
+      // Surface a transient companion line in the VN dialogue box (and, by
+      // extension, the conversation screen) without a script lookup — used
+      // for shop purchases and item activations. Relaxes back to idle via
+      // tickMood once `moodExpiresAt` passes.
+      function showCompanionReaction(line: string, mood: Mood) {
+        if (!line) return;
+        set({
+          currentMood: mood,
+          currentEvent: 'reaction',
+          currentLine: line,
+          moodExpiresAt: Date.now() + 6000,
+        });
+      }
+
       // Random choice prompt on income — roughly every other time (~50%),
       // so it's a treat, not spam, and can't be farmed. Skips if a prompt is
       // already pending (e.g. a tier-up just queued one) or an unlock popup is up.
@@ -422,7 +438,6 @@ export const useStore = create<StoreState>()(
         coins: 0,
         totalCoinsEarned: 0,
         ownedItems: {},
-        equippedItems: {},
         activeXpBoost: null,
         activeCoinBoost: null,
         streakFreezes: 0,
@@ -430,10 +445,17 @@ export const useStore = create<StoreState>()(
         coinTxDate: null,
         coinTxCount: 0,
 
+        // Preferences
+        currency: DEFAULT_CURRENCY,
+
         // ── Actions ────────────────────────────────────────────
 
         clearPendingAchievements() {
           set({ pendingAchievements: [] });
+        },
+
+        setCurrency(code) {
+          set({ currency: code });
         },
 
         shiftPendingAchievement() {
@@ -469,25 +491,9 @@ export const useStore = create<StoreState>()(
               ? Math.min(2, st.streakFreezes + freezeAdd)
               : st.streakFreezes,
           }));
+          // Companion reacts in the dialogue box — pleased you treated yourself.
+          showCompanionReaction(purchaseLineFor(s.activeCharacterId), 'happy');
           return { success: true };
-        },
-
-        equipItem(itemId) {
-          const item = SHOP_ITEM_MAP[itemId];
-          if (!item || item.type !== 'avatar_accessory' || !item.slot) return;
-          const owned = get().ownedItems[itemId] ?? 0;
-          if (owned <= 0) return;
-          set(st => ({
-            equippedItems: { ...st.equippedItems, [item.slot!]: itemId },
-          }));
-        },
-
-        unequipSlot(slot) {
-          set(st => {
-            const next = { ...st.equippedItems };
-            delete next[slot];
-            return { equippedItems: next };
-          });
         },
 
         activateItem(itemId) {
@@ -498,23 +504,26 @@ export const useStore = create<StoreState>()(
           if (owned <= 0) return;
           const now = Date.now();
           const newOwned = { ...s.ownedItems, [itemId]: owned - 1 };
+
+          const patch: Partial<StoreState> = { ownedItems: newOwned };
           if (item.type === 'xp_booster' && item.durationHours && item.xpMultiplier) {
-            set({
-              ownedItems: newOwned,
-              activeXpBoost: {
-                multiplier: item.xpMultiplier,
-                expiresAt: now + item.durationHours * 3600 * 1000,
-              },
-            });
+            patch.activeXpBoost = {
+              multiplier: item.xpMultiplier,
+              expiresAt: now + item.durationHours * 3600 * 1000,
+            };
           } else if (item.type === 'coin_magnet' && item.durationHours && item.coinBonus) {
-            set({
-              ownedItems: newOwned,
-              activeCoinBoost: {
-                multiplier: item.coinBonus,
-                expiresAt: now + item.durationHours * 3600 * 1000,
-              },
-            });
+            patch.activeCoinBoost = {
+              multiplier: item.coinBonus,
+              expiresAt: now + item.durationHours * 3600 * 1000,
+            };
+          } else {
+            // Nothing activatable (e.g. a streak saver) — don't consume it.
+            return;
           }
+
+          set(patch);
+          // Companion reacts in the dialogue box with a happy/surprised sprite.
+          showCompanionReaction(useLineFor(s.activeCharacterId), 'surprised');
         },
 
         tickBoosts() {
@@ -1081,7 +1090,6 @@ export const useStore = create<StoreState>()(
             coins: 0,
             totalCoinsEarned: 0,
             ownedItems: {},
-            equippedItems: {},
             activeXpBoost: null,
             activeCoinBoost: null,
             streakFreezes: 0,
@@ -1150,13 +1158,14 @@ export const useStore = create<StoreState>()(
         coins: state.coins,
         totalCoinsEarned: state.totalCoinsEarned,
         ownedItems: state.ownedItems,
-        equippedItems: state.equippedItems,
         activeXpBoost: state.activeXpBoost,
         activeCoinBoost: state.activeCoinBoost,
         streakFreezes: state.streakFreezes,
         // Daily coin-cap persistence (so the limit can't be reset by relaunching)
         coinTxDate: state.coinTxDate,
         coinTxCount: state.coinTxCount,
+        // Preferences
+        currency: state.currency,
       }),
     }
   )

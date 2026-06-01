@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { Colors, Spacing, Radius, FontWeight, CategoryMeta, type Category } from '../theme';
 import type { Transaction, Goal, LeaderboardEntry } from '../store/useStore';
-import { fmtCurrency, fmtDate } from '../utils/format';
+import { fmtDate } from '../utils/format';
+import { useMoney } from '../utils/money';
 
 // ─────────────────────────────────────────────────────────
 // SectionTitle
@@ -61,11 +62,12 @@ interface GoalCardProps { goal: Goal; onPress?: () => void; }
 export function GoalCard({ goal, onPress }: GoalCardProps) {
   const { icon, name, saved, target, color } = goal;
   const pct = Math.min(1, saved / target);
+  const fmt = useMoney();
   return (
     <Pressable style={goalStyles.card} onPress={onPress}>
       <Text style={goalStyles.icon}>{icon}</Text>
       <Text style={goalStyles.name} numberOfLines={1}>{name}</Text>
-      <Text style={goalStyles.amt}>{fmtCurrency(saved)} / {fmtCurrency(target)}</Text>
+      <Text style={goalStyles.amt}>{fmt(saved)} / {fmt(target)}</Text>
       <View style={goalStyles.track}>
         <View style={[goalStyles.fill, { width: `${Math.round(pct * 100)}%` as any, backgroundColor: color }]} />
       </View>
@@ -91,6 +93,7 @@ export function TransactionItem({ item, onLongPress }: TxItemProps) {
   const isIncome = item.type === 'income';
   const emoji = item.category.split(' ')[0];
   const meta = CategoryMeta[item.category as Category];
+  const fmt = useMoney();
   return (
     <Pressable
       style={txStyles.row}
@@ -105,7 +108,7 @@ export function TransactionItem({ item, onLongPress }: TxItemProps) {
         <Text style={txStyles.cat}>{item.category} · {fmtDate(item.date)}</Text>
       </View>
       <Text style={[txStyles.amt, { color: isIncome ? Colors.income : Colors.expense }]}>
-        {isIncome ? '+' : '-'}{fmtCurrency(item.amount)}
+        {isIncome ? '+' : '-'}{fmt(item.amount)}
       </Text>
     </Pressable>
   );
@@ -146,13 +149,14 @@ interface CategoryBarProps { category: Category; amount: number; max: number; }
 export function CategoryBar({ category, amount, max }: CategoryBarProps) {
   const pct = Math.min(1, max > 0 ? amount / max : 0);
   const meta = CategoryMeta[category];
+  const fmt = useMoney();
   return (
     <View style={barStyles.row}>
       <Text style={barStyles.label} numberOfLines={1}>{category}</Text>
       <View style={barStyles.track}>
         <View style={[barStyles.fill, { width: `${Math.round(pct * 100)}%` as any, backgroundColor: meta?.bar ?? '#94a3b8' }]} />
       </View>
-      <Text style={barStyles.val}>{fmtCurrency(amount)}</Text>
+      <Text style={barStyles.val}>{fmt(amount)}</Text>
     </View>
   );
 }

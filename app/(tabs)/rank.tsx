@@ -5,13 +5,14 @@ import {
 import { useStore } from '../../src/store/useStore';
 import { LeaderboardItem, SectionTitle } from '../../src/components';
 import { Colors, Spacing, Radius, FontWeight } from '../../src/theme';
-import { fmtCurrency } from '../../src/utils/format';
+import { useMoney } from '../../src/utils/money';
 
 export default function RankScreen() {
   const getLeaderboard  = useStore(s => s.getLeaderboardWithMe);
   const xp              = useStore(s => s.xp);
   const getLevel        = useStore(s => s.getLevel);
   const getMonthlyTotals= useStore(s => s.getMonthlyTotals);
+  const fmt             = useMoney();
 
   const board   = getLeaderboard();
   const level   = getLevel();
@@ -29,12 +30,12 @@ export default function RankScreen() {
         </View>
         <View style={styles.myRight}>
           <View style={styles.myStat}>
-            <Text style={[styles.myStatVal, { color: Colors.income }]}>{fmtCurrency(monthly.income)}</Text>
+            <Text style={[styles.myStatVal, { color: Colors.income }]}>{fmt(monthly.income)}</Text>
             <Text style={styles.myStatLabel}>Income</Text>
           </View>
           <View style={styles.myStatSep} />
           <View style={styles.myStat}>
-            <Text style={[styles.myStatVal, { color: Colors.expense }]}>{fmtCurrency(monthly.expenses)}</Text>
+            <Text style={[styles.myStatVal, { color: Colors.expense }]}>{fmt(monthly.expenses)}</Text>
             <Text style={styles.myStatLabel}>Spent</Text>
           </View>
         </View>

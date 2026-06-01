@@ -1,6 +1,8 @@
-export function fmtCurrency(amount: number): string {
-  if (!isFinite(amount)) return '€0';
-  return '€' + amount.toLocaleString('en', {
+// `symbol` defaults to € so legacy/non-reactive callers still work; screens
+// pass the user's chosen symbol (via the useMoney hook) for live updates.
+export function fmtCurrency(amount: number, symbol = '€'): string {
+  if (!isFinite(amount)) return symbol + '0';
+  return symbol + amount.toLocaleString('en', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });

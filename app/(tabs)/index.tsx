@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Animated,
   Image,
   ImageBackground,
+  Modal,
   SafeAreaView,
   ScrollView, StyleSheet,
   Text,
@@ -28,8 +29,10 @@ import { KasumiDialogueModal } from '../../src/kasumi/KasumiDialogueModal';
 import { MULTIPLIER_STREAK_GATE, streakMultiplier } from '../../src/kasumi/xp';
 import { playTap } from '../../src/utils/sound';
 import { useStore } from '../../src/store/useStore';
+import { SHOP_ITEM_MAP, effectSummary, type ShopItem } from '../../src/shop/shopCatalogue';
 import { FontWeight, Radius, Spacing, XP_PER_LEVEL } from '../../src/theme';
-import { fmtCurrency, getGreeting } from '../../src/utils/format';
+import { getGreeting } from '../../src/utils/format';
+import { useMoney, useCurrencySymbol } from '../../src/utils/money';
 
 // Lavender/pink palette — overrides Colors where the restyle calls for it.
 const PALETTE = {
@@ -51,6 +54,7 @@ const PALETTE = {
 export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [kasumiOpen, setKasumiOpen]     = useState(false);
+  const [bagOpen, setBagOpen]           = useState(false);
 
   const transactions      = useStore(s => s.transactions);
   const xp                = useStore(s => s.xp);
@@ -88,6 +92,8 @@ export default function HomeScreen() {
   const xpInLevel = getXpInLevel();
   const recent    = transactions.slice(0, 4);
   const isNetNeg  = expenses > 0 && expenses > income;
+  const fmt       = useMoney();
+  const sym       = useCurrencySymbol();
 
   // ── XP-award toast ───────────────────────────────────────────
   // Fades in/out when a new award arrives. We watch a key derived
@@ -176,6 +182,14 @@ export default function HomeScreen() {
           >
             <Text style={styles.vnTalkText}>Talk  ♡</Text>
           </TouchableOpacity>
+          {/* Gift button — opens the bag of purchased items, under Talk */}
+          <TouchableOpacity
+            style={styles.vnGiftBtn}
+            onPress={() => { playTap(); setBagOpen(true); }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.vnGiftText}>Gift  🎁</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Panels float over the faded extension of the backdrop ── */}
@@ -194,7 +208,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={[styles.heroBalance, isNetNeg && { color: '#fda4af' }]}>
-                {fmtCurrency(balance)}
+                {fmt(balance)}
               </Text>
               {(activeXpBoost && Date.now() < activeXpBoost.expiresAt) && (
                 <View style={styles.heroBoostBadge}>
@@ -209,12 +223,12 @@ export default function HomeScreen() {
               <View style={styles.heroDivider} />
               <View style={styles.heroStats}>
                 <View>
-                  <Text style={[styles.heroStatVal, { color: '#86efac' }]}>{fmtCurrency(income)}</Text>
+                  <Text style={[styles.heroStatVal, { color: '#86efac' }]}>{fmt(income)}</Text>
                   <Text style={styles.heroStatLabel}>Income</Text>
                 </View>
                 <View style={styles.heroStatSep} />
                 <View>
-                  <Text style={[styles.heroStatVal, { color: '#fca5a5' }]}>{fmtCurrency(expenses)}</Text>
+                  <Text style={[styles.heroStatVal, { color: '#fca5a5' }]}>{fmt(expenses)}</Text>
                   <Text style={styles.heroStatLabel}>Spent</Text>
                 </View>
               </View>
@@ -234,7 +248,7 @@ export default function HomeScreen() {
                 </Text>
                 <Text style={styles.streakSub}>
                   {multiplierUnlocked
-                    ? `${savingStreak}-day saving streak · 1.5×/2×/3× on €100/€300/€500+`
+                    ? `${savingStreak}-day saving streak · 1.5×/2×/3× on ${sym}100/${sym}300/${sym}500+`
                     : `${savingStreak} / ${MULTIPLIER_STREAK_GATE} days saving in a row`}
                 </Text>
               </View>
@@ -312,7 +326,82 @@ export default function HomeScreen() {
         onAddTransaction={() => setModalVisible(true)}
         onOpenGoals={() => router.push('/goals')}
       />
+
+      <BagSheet visible={bagOpen} onClose={() => setBagOpen(false)} />
     </ScreenBackground>
+  );
+}
+
+// ── Gift bag sheet ────────────────────────────────────────────────────
+// Revealed by the "Gift" button under Talk. Lists the player's purchased
+// items so consumables can be activated without a trip to the shop. Using
+// one closes the sheet so the companion's reaction shows in the dialogue
+// box behind it. Streak savers are passive (auto-used on a missed day).
+function BagSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const ownedItems   = useStore(s => s.ownedItems);
+  const activateItem = useStore(s => s.activateItem);
+
+  const items = useMemo(() =>
+    Object.entries(ownedItems)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => ({ item: SHOP_ITEM_MAP[id], qty }))
+      .filter((e): e is { item: ShopItem; qty: number } => !!e.item),
+    [ownedItems],
+  );
+
+  const handleUse = (item: ShopItem) => {
+    playTap();
+    activateItem(item.id);
+    onClose();   // close so the companion's reaction shows in the dialogue box
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.bagBackdrop} activeOpacity={1} onPress={onClose} />
+      <View style={styles.bagSheet}>
+        <View style={styles.bagHandle} />
+        <Text style={styles.bagTitle}>Your bag  🎁</Text>
+
+        {items.length === 0 ? (
+          <View style={styles.bagEmpty}>
+            <Text style={styles.bagEmptyIcon}>🎒</Text>
+            <Text style={styles.bagEmptyText}>
+              Your bag is empty. Visit the shop to pick up boosts and treats.
+            </Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.bagList} showsVerticalScrollIndicator={false}>
+            {items.map(({ item, qty }) => {
+              const auto = item.type === 'streak_freeze';
+              return (
+                <View key={item.id} style={styles.bagItem}>
+                  <Text style={styles.bagItemIcon}>{item.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.bagItemName}>
+                      {item.name}  <Text style={styles.bagItemQty}>×{qty}</Text>
+                    </Text>
+                    <Text style={styles.bagItemEffect}>{effectSummary(item)}</Text>
+                  </View>
+                  {auto ? (
+                    <View style={styles.bagAutoTag}>
+                      <Text style={styles.bagAutoText}>Auto</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.bagUseBtn}
+                      onPress={() => handleUse(item)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.bagUseText}>Use</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+    </Modal>
   );
 }
 
@@ -413,11 +502,52 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
   },
   vnTalkText: { color: '#fff', fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.3 },
+  // Gift button — sits just under Talk, same shape, purple to differentiate
+  vnGiftBtn: {
+    position: 'absolute', right: 16,
+    top: VN_BACKDROP_HEIGHT * 0.52 + 46,
+    backgroundColor: 'rgba(124,58,237,0.9)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 18, paddingVertical: 9,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)',
+    shadowColor: '#5b21b6', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
+  },
+  vnGiftText: { color: '#fff', fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.3 },
   vnBody: {
     marginTop: Spacing.md,    // clear gap below the dialogue box
     paddingHorizontal: Spacing.lg,
   },
   vnBalanceCard: { marginBottom: Spacing.lg, padding: Spacing.sm },
+
+  // Gift bag sheet
+  bagBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(40,12,60,0.5)' },
+  bagSheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: PALETTE.cardBg,
+    borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl,
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 36,
+  },
+  bagHandle: { width: 36, height: 4, borderRadius: Radius.full, backgroundColor: PALETTE.cardBorder, alignSelf: 'center', marginBottom: Spacing.md },
+  bagTitle: { fontSize: 18, fontWeight: FontWeight.bold, color: PALETTE.textPrimary, marginBottom: Spacing.md },
+  bagList: { maxHeight: 360 },
+  bagEmpty: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 },
+  bagEmptyIcon: { fontSize: 40, marginBottom: 10 },
+  bagEmptyText: { fontSize: 13, color: PALETTE.textSecondary, textAlign: 'center', lineHeight: 19 },
+  bagItem: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    backgroundColor: '#faf5ff', borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: PALETTE.cardBorder,
+    padding: Spacing.md, marginBottom: Spacing.sm,
+  },
+  bagItemIcon: { fontSize: 28, lineHeight: 34 },
+  bagItemName: { fontSize: 14, fontWeight: FontWeight.semibold, color: PALETTE.textPrimary },
+  bagItemQty: { fontSize: 12, fontWeight: FontWeight.bold, color: PALETTE.textMuted },
+  bagItemEffect: { fontSize: 12, color: PALETTE.textSecondary, marginTop: 2 },
+  bagUseBtn: { backgroundColor: PALETTE.accentDeep, borderRadius: Radius.md, paddingHorizontal: 18, paddingVertical: 9 },
+  bagUseText: { color: '#fff', fontSize: 13, fontWeight: FontWeight.bold },
+  bagAutoTag: { backgroundColor: '#ede9fe', borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 7 },
+  bagAutoText: { color: PALETTE.textMuted, fontSize: 12, fontWeight: FontWeight.semibold },
 
   pageGlow: {
     position: 'absolute',
