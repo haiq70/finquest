@@ -44,11 +44,13 @@ import {
   type XpAward,
 } from '../kasumi/xp';
 import {
+  ACHIEVEMENTS,
   checkNewAchievements,
   type AchievementDef,
   type AchievementSnapshot,
 } from '../kasumi/achievements';
 import {
+  SHOP_ITEMS,
   SHOP_ITEM_MAP,
   type ShopItem,
   type AvatarSlot,
@@ -229,6 +231,21 @@ interface StoreState {
   markIntroSeen: () => void;                       // dismiss the first-launch intro
   resolveChoicePrompt: (optionIndex: number) => void;  // player picked a choice option
   clearChoiceResult: () => void;                   // dismiss the post-choice reaction
+
+  // ── Debug / testing helpers ───────────────────────────────────
+  // Cheats that let you exercise progression-gated features without the
+  // day-by-day grind. Surfaced through the in-app Debug panel.
+  debugAddXp: (amount: number) => void;
+  debugAddCoins: (amount: number) => void;
+  debugSetStreak: (days: number) => void;
+  debugSetSavingStreak: (days: number) => void;
+  debugAddAffection: (amount: number) => void;
+  debugUnlockAllCharacters: () => void;
+  debugUnlockAllAchievements: () => void;
+  debugGrantAllItems: () => void;
+  debugActivateBoosts: () => void;
+  debugResetCoinCap: () => void;
+  debugResetProgress: () => void;
 
   // Derived (computed on the fly — not stored)
   getTotals: () => { income: number; expenses: number; balance: number };
@@ -959,6 +976,119 @@ export const useStore = create<StoreState>()(
           }
           if (expenses > 0 && expenses > income) return 'sad';
           return state.currentMood;
+        },
+
+        // ── Debug / testing helpers ────────────────────────────
+        // These bypass the normal earning flow on purpose. Achievements
+        // are re-checked after state-changing cheats so unlocks that
+        // depend on the faked values still fire.
+
+        debugAddXp(amount) {
+          set(st => ({ xp: Math.max(0, st.xp + amount) }));
+          checkAndQueueAchievements();
+        },
+
+        debugAddCoins(amount) {
+          set(st => ({
+            coins: Math.max(0, st.coins + amount),
+            totalCoinsEarned: st.totalCoinsEarned + Math.max(0, amount),
+          }));
+        },
+
+        debugSetStreak(days) {
+          const d = Math.max(0, Math.round(days));
+          set({ streak: d, lastLogDate: d > 0 ? todayString() : null });
+          checkAndQueueAchievements();
+        },
+
+        debugSetSavingStreak(days) {
+          const d = Math.max(0, Math.round(days));
+          set({ savingStreak: d, lastSavingDate: d > 0 ? todayString() : null });
+          checkAndQueueAchievements();
+        },
+
+        debugAddAffection(amount) {
+          const state = get();
+          const newAffection = clampAffection(state.affection + amount);
+          const tier = tierFromAffection(newAffection);
+          set({
+            affection: newAffection,
+            lastTierKey: tier.key,
+            currentMood: amount >= 0 ? 'happy' : 'sad',
+            currentEvent: 'idle',
+            currentLine: pickLineFor(state.activeCharacterId, 'idle', tier.key),
+            moodExpiresAt: Date.now() + 4000,
+          });
+          checkAndQueueAchievements();
+        },
+
+        debugUnlockAllCharacters() {
+          set({ unlockedCharacterIds: CHARACTERS.map(c => c.id) });
+        },
+
+        debugUnlockAllAchievements() {
+          set({ unlockedAchievementIds: ACHIEVEMENTS.map(a => a.id) });
+        },
+
+        debugGrantAllItems() {
+          set(st => {
+            const owned = { ...st.ownedItems };
+            for (const item of SHOP_ITEMS) {
+              owned[item.id] = Math.max(owned[item.id] ?? 0, item.maxOwned ?? 5);
+            }
+            return { ownedItems: owned, streakFreezes: 2 };
+          });
+        },
+
+        debugActivateBoosts() {
+          const dayMs = 24 * 3600 * 1000;
+          set({
+            activeXpBoost: { multiplier: 2, expiresAt: Date.now() + dayMs },
+            activeCoinBoost: { multiplier: 0.5, expiresAt: Date.now() + dayMs },
+          });
+        },
+
+        debugResetCoinCap() {
+          set({ coinTxDate: todayString(), coinTxCount: 0 });
+        },
+
+        debugResetProgress() {
+          set({
+            transactions: [],
+            xp: 0,
+            streak: 0,
+            lastLogDate: null,
+            goals: DEFAULT_GOALS,
+            savingStreak: 0,
+            lastSavingDate: null,
+            lastXpAward: null,
+            activeCharacterId: DEFAULT_CHARACTER_ID,
+            unlockedCharacterIds: CHARACTERS.filter(c => c.unlockedByDefault).map(c => c.id),
+            companions: freshCompanionMap(),
+            pendingCharacterUnlock: null,
+            pendingChoicePrompt: null,
+            lastChoicePromptId: null,
+            choiceResult: null,
+            affection: 0,
+            hasMet: true,
+            lastTierKey: 'stranger',
+            currentMood: 'neutral',
+            currentEvent: 'idle',
+            currentLine: '',
+            moodExpiresAt: null,
+            unlockedAchievementIds: [],
+            pendingAchievements: [],
+            coins: 0,
+            totalCoinsEarned: 0,
+            ownedItems: {},
+            equippedItems: {},
+            activeXpBoost: null,
+            activeCoinBoost: null,
+            streakFreezes: 0,
+            lastCoinAward: null,
+            coinTxDate: null,
+            coinTxCount: 0,
+          });
         },
       };
     },

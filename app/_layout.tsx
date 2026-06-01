@@ -30,6 +30,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
           <Stack.Screen name="characters" options={{ presentation: 'modal' }} />
           <Stack.Screen name="privacy" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="debug" options={{ presentation: 'modal' }} />
         </Stack>
         {/* Global achievement toast overlay — renders above all screens */}
         <AchievementQueue />

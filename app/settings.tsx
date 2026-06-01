@@ -138,6 +138,28 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color={P.textMuted} />
           </Pressable>
         </View>
+
+        {/* Developer section — only in dev builds */}
+        {__DEV__ && (
+          <>
+            <Text style={styles.sectionLabel}>DEVELOPER</Text>
+            <View style={styles.card}>
+              <Pressable
+                style={styles.row}
+                onPress={() => { playTap(); router.push('/debug'); }}
+              >
+                <View style={styles.rowLabel}>
+                  <Ionicons name="bug" size={20} color={P.pink} />
+                  <Text style={styles.rowTitle}>Debug tools</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={P.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={styles.hint}>
+              Cheats for testing progression-gated features. Hidden in release builds.
+            </Text>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

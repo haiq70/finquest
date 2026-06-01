@@ -492,17 +492,22 @@ const styles = StyleSheet.create({
   toast: {
     position: 'absolute',
     top: 80, alignSelf: 'center',
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    // Wrap + cap the width so long streak-multiplier labels stay on screen
+    // instead of overflowing past the rounded pill and getting clipped.
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    flexWrap: 'wrap', gap: 6, maxWidth: '90%',
     backgroundColor: PALETTE.accentDeep,
     paddingHorizontal: Spacing.lg, paddingVertical: 10,
-    borderRadius: Radius.full,
+    borderRadius: Radius.lg,
     shadowColor: PALETTE.accentDeep,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
   },
   toastSparkle: { color: '#fbbf24', fontSize: 14 },
-  toastText:    { color: '#fff', fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.3 },
-  toastLock:    { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontStyle: 'italic' },
+  toastText:    { color: '#fff', fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.3,
+                  flexShrink: 1, textAlign: 'center' },
+  toastLock:    { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontStyle: 'italic',
+                  flexShrink: 1, textAlign: 'center' },
 
   fab: {
     position: 'absolute', bottom: 24, alignSelf: 'center',

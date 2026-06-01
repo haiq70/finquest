@@ -293,6 +293,7 @@ export default function ShopScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={s.filterScroll}
             contentContainerStyle={s.filterRow}
           >
             {FILTER_TABS.map(t => (
@@ -543,7 +544,10 @@ const s = StyleSheet.create({
   // Shared sub-screen wrapper — MUST be flex:1 so it fills remaining height
   subScreen:  { flex: 1 },
 
-  // Filter pills
+  // Filter pills — a horizontal ScrollView inside a flex:1 parent stretches
+  // to fill all remaining height unless we pin it with flexGrow:0, which made
+  // the category row balloon down over the grid.
+  filterScroll:{ flexGrow: 0 },
   filterRow:  { paddingHorizontal: Spacing.lg, gap: Spacing.sm,
                 paddingBottom: Spacing.md, paddingTop: 2 },
   pill:       { paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full,
